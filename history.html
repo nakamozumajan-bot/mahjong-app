@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📈 麻雀収支管理 - 履歴・収支 (クラウド共有版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --main-color: #1a73e8; --accent-color-green: #00b894;
+            --accent-color-red: #d63031; --accent-color-yellow: #ffc107;
+            --bg-color: #f0f2f5; --card-bg: #ffffff; --border-color: #e9ecef;
+            --text-color-dark: #333; --text-color-light: #666;
+        }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background-color: var(--bg-color); color: var(--text-color-dark); line-height: 1.6; }
+        .container { max-width: 1400px; margin: auto; }
+        h1 { color: var(--main-color); margin-bottom: 10px; font-size: 2em; }
+        h2 { border-left: 5px solid var(--main-color); padding-left: 15px; margin-bottom: 20px; font-weight: 600; font-size: 1.4em; }
+
+        .nav-link {
+            display: inline-block; margin-bottom: 25px; padding: 10px 20px;
+            background-color: var(--accent-color-yellow); color: var(--text-color-dark);
+            text-decoration: none; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .card { background: var(--card-bg); border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        #chartContainer { position: relative; width: 100%; height: 400px; }
+
+        .filter-container {
+            margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+            background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); width: fit-content;
+        }
+        select { padding: 8px 30px 8px 12px; border: 1px solid #ced4da; border-radius: 4px; cursor: pointer; }
+
+        .table-wrapper { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; background-color: white; white-space: nowrap; }
+        th { background-color: #f1f3f4; padding: 12px 15px; text-align: left; border-bottom: 2px solid #dce0e4; position: sticky; top: 0; z-index: 10; }
+        td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); }
+        .positive { color: var(--accent-color-green); font-weight: bold; }
+        .negative { color: var(--accent-color-red); font-weight: bold; }
+        .zero { color: #aaa; }
+        .total-payout-cell { font-weight: 800; background-color: #fdfdfd; border-right: 2px solid var(--main-color); }
+
+        button.delete-btn {
+            background-color: #fff; color: var(--accent-color-red);
+            border: 1px solid var(--accent-color-red); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
+        }
+        button.delete-btn:hover { background-color: var(--accent-color-red); color: white; }
+
+        /* メモ */
+        .memo-input-area { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        textarea.memo-textarea { width: 100%; height: 80px; padding: 12px; border: 1px solid #ced4da; border-radius: 8px; resize: vertical; box-sizing: border-box; }
+        .memo-submit-btn { align-self: flex-end; background-color: var(--main-color); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .memo-list { display: flex; flex-direction: column; gap: 15px; }
+        .memo-item { background-color: #f8f9fa; border-left: 4px solid var(--main-color); padding: 15px; border-radius: 4px; }
+        .memo-meta { font-size: 0.85em; color: var(--text-color-light); margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .memo-content { white-space: pre-wrap; }
+        .memo-delete { background: none; border: none; color: #999; cursor: pointer; font-size: 1.2em; padding: 0 5px; }
+        .memo-delete:hover { color: var(--accent-color-red); }
+
+        /* ローディングオーバーレイ */
+        #loadingOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid var(--main-color);
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin-bottom: 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) { body { padding: 10px; } .card { padding: 15px; } }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div style="font-weight: bold; color: #555;">データを読み込み中...<br><span style="font-size:0.8em">※スプレッドシートと通信しています</span></div>
+    </div>
+
+    <div class="container">
+        <h1>📈 麻雀収支管理</h1>
+        <a href="index.html" class="nav-link">📝 データ入力ページへ戻る</a>
+
+        <div class="card">
+            <h2>📊 累計収支推移グラフ</h2>
+            <div id="chartContainer"><canvas id="payoutChart"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h2>💰 グループ別累計収支</h2>
+            <div class="filter-container">
+                <label for="groupFilter">集計グループ:</label>
+                <select id="groupFilter" onchange="updateDisplay()"></select>
+            </div>
+            <div class="table-wrapper">
+                <table id="resultsTable">
+                    <thead><tr><th>プレイヤー</th><th>対局数</th><th>平均順位</th><th>総合収支 (pt)</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📝 メモ・掲示板</h2>
+            <div class="memo-input-area">
+                <textarea id="memoText" class="memo-textarea" placeholder="対局の振り返りや連絡事項などを入力してください..."></textarea>
+                <button onclick="addMemo()" class="memo-submit-btn">投稿する</button>
+            </div>
+            <div id="memoListContainer" class="memo-list"></div>
+        </div>
+        
+        <div class="card">
+            <h2>🗒️ 全対局履歴</h2>
+            <div class="table-wrapper">
+                <table id="historyTable"><thead></thead><tbody></tbody></table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // ★★★ ここに取得したURLを貼り付けてください！ ★★★
+        // ============================================================
+        const API_URL = "https://script.google.com/macros/s/AKfycby3P43pBq22WzjMOHeFzMqZ9ZWkkosJUjGKfByzllRwG2zipHOQOOx2SIO-pdKn1Egj/exec";
+        // ============================================================
+
+        let historyData = []; 
+        let registeredGroups = [];
+        let memos = [];
+        let payoutChart = null; 
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+        });
+
+        async function loadAllData() {
+            showLoading(true);
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+
+                historyData = JSON.parse(data.mahjong_variable_score_history_int || "[]");
+                registeredGroups = JSON.parse(data.mahjong_registered_groups || "[]");
+                memos = JSON.parse(data.mahjong_memos || "[]");
+
+                initializeGroupFilter();
+                renderMemos();
+                updateDisplay();
+
+            } catch (error) {
+                alert("データの読み込みに失敗しました。\n" + error);
+                console.error(error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function saveData(key, value) {
+            showLoading(true);
+            try {
+                const payload = { key: key, value: JSON.stringify(value) };
+                await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+            } catch (error) {
+                alert("データの保存に失敗しました。\n" + error);
+                console.error(error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showLoading(isLoading) {
+            document.getElementById('loadingOverlay').style.display = isLoading ? 'flex' : 'none';
+        }
+
+        // --- メモ機能 ---
+        async function addMemo() {
+            const textarea = document.getElementById('memoText');
+            const text = textarea.value.trim();
+            if (!text) return;
+
+            const newMemo = {
+                id: Date.now(),
+                text: text,
+                date: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+            };
+
+            memos.unshift(newMemo);
+            await saveData('mahjong_memos', memos);
+            renderMemos();
+            textarea.value = '';
+        }
+
+        async function deleteMemo(id) {
+            if (confirm("このメモを削除しますか？")) {
+                memos = memos.filter(memo => memo.id !== id);
+                await saveData('mahjong_memos', memos);
+                renderMemos();
+            }
+        }
+
+        function renderMemos() {
+            const container = document.getElementById('memoListContainer');
+            container.innerHTML = '';
+            if (memos.length === 0) {
+                container.innerHTML = '<div style="color:#999; text-align:center; padding:10px;">メモはまだありません。</div>';
+                return;
+            }
+            memos.forEach(memo => {
+                const div = document.createElement('div');
+                div.className = 'memo-item';
+                div.innerHTML = `
+                    <div class="memo-meta">
+                        <span>${memo.date}</span>
+                        <button class="memo-delete" onclick="deleteMemo(${memo.id})" title="削除">&times;</button>
+                    </div>
+                    <div class="memo-content">${escapeHtml(memo.text)}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        function escapeHtml(unsafe) {
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // --- 描画・集計ロジック ---
+        function initializeGroupFilter() {
+            const historyGroups = [...new Set(historyData.map(g => g.group))].filter(g => g && g !== '全体');
+            const allGroups = [...new Set([...registeredGroups, ...historyGroups])].sort();
+            
+            let select = document.getElementById('groupFilter');
+            const currentSelected = select.value;
+            select.innerHTML = '';
+            
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = '全体 (全グループ合計)';
+            select.appendChild(allOption);
+
+            allGroups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group;
+                option.textContent = group;
+                select.appendChild(option);
+            });
+            select.value = currentSelected || 'all';
+        }
+
+        async function deleteGame(id) {
+            if (confirm("この対局履歴を削除してもよろしいですか？")) {
+                historyData = historyData.filter(game => game.id !== id);
+                await saveData('mahjong_variable_score_history_int', historyData);
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            const filterEl = document.getElementById('groupFilter');
+            const selectedGroup = filterEl ? filterEl.value : 'all';
+
+            const filteredHistory = historyData.filter(game => 
+                selectedGroup === 'all' || game.group === selectedGroup
+            );
+
+            const { labels, datasets, allPlayerNames } = createChartData(filteredHistory);
+            drawChart(labels, datasets);
+
+            const totals = {};
+            const playerNames = allPlayerNames; 
+            playerNames.forEach(name => {
+                totals[name] = { games: 0, totalRank: 0, totalScorePt: 0, totalBonusPt: 0, totalPayout: 0 };
+            });
+
+            filteredHistory.forEach(game => {
+                Object.entries(game.payouts).forEach(([name, result]) => {
+                    if (!totals[name]) totals[name] = { games: 0, totalRank: 0, totalScorePt: 0, totalBonusPt: 0, totalPayout: 0 };
+                    if (totals[name]) {
+                        totals[name].games++;
+                        totals[name].totalRank += result.rank;
+                        totals[name].totalScorePt += result.scorePt; 
+                        totals[name].totalBonusPt += result.bonusPt;
+                        totals[name].totalPayout += result.total;
+                    }
+                });
+            });
+
+            const resultsBody = document.querySelector('#resultsTable tbody');
+            resultsBody.innerHTML = '';
+            Object.entries(totals).filter(([, data]) => data.games > 0).sort(([, a], [, b]) => b.totalPayout - a.totalPayout).forEach(([name, data]) => {
+                const row = resultsBody.insertRow();
+                const avgRank = data.games > 0 ? (data.totalRank / data.games).toFixed(2) : 'N/A';
+                row.insertCell().textContent = name;
+                row.insertCell().textContent = data.games;
+                row.insertCell().textContent = avgRank;
+                const totalCell = row.insertCell();
+                const totalPayout = Math.round(data.totalPayout);
+                totalCell.textContent = totalPayout.toLocaleString();
+                totalCell.className = totalPayout > 0 ? 'positive' : (totalPayout < 0 ? 'negative' : 'zero');
+            });
+            
+            const historyBody = document.querySelector('#historyTable tbody');
+            const historyHead = document.querySelector('#historyTable thead');
+            historyBody.innerHTML = ''; historyHead.innerHTML = '';
+            const referenceNames = playerNames.sort();
+            
+            if (referenceNames.length > 0) {
+                const headerRow = historyHead.insertRow();
+                headerRow.insertCell().innerHTML = '日時';
+                headerRow.insertCell().innerHTML = 'グループ';
+                headerRow.insertCell().innerHTML = '人数';
+                for(let i=1; i <= 5; i++) headerRow.insertCell().innerHTML = `${i}位`;
+                referenceNames.forEach(name => {
+                    headerRow.insertCell().innerHTML = `<span style="font-size:0.9em; color:#888">${name}</span><br>点差`;
+                    headerRow.insertCell().innerHTML = `<span style="font-size:0.9em; color:#888">${name}</span><br>順位点`;
+                    const totalHeaderCell = headerRow.insertCell();
+                    totalHeaderCell.innerHTML = `<span style="font-size:0.9em; color:#1a73e8">${name}</span><br>合計`;
+                    totalHeaderCell.style.borderRight = '2px solid #1a73e8';
+                    totalHeaderCell.style.backgroundColor = '#f8fbff';
+                });
+                headerRow.insertCell().innerHTML = '操作';
+            }
+
+            [...filteredHistory].reverse().forEach(game => {
+                const row = historyBody.insertRow();
+                row.insertCell().textContent = game.date.split(' ')[0]; 
+                row.insertCell().textContent = game.group || '-';
+                row.insertCell().textContent = game.playerCount + "人";
+                for(let i=1; i <= 5; i++) row.insertCell().textContent = game.ranks[i] || (i > game.playerCount ? '-' : 'N/A');
+                referenceNames.forEach(pName => {
+                    const payoutData = game.payouts[pName];
+                    if (payoutData) {
+                        const scoreCell = row.insertCell(); const scorePt = Math.round(payoutData.scorePt);
+                        scoreCell.textContent = scorePt; scoreCell.className = scorePt > 0 ? 'positive' : (scorePt < 0 ? 'negative' : 'zero');
+                        const bonusCell = row.insertCell(); const bonusPt = Math.round(payoutData.bonusPt);
+                        bonusCell.textContent = bonusPt; bonusCell.className = bonusPt > 0 ? 'positive' : (bonusPt < 0 ? 'negative' : 'zero');
+                        const totalCell = row.insertCell(); const totalPayout = Math.round(payoutData.total);
+                        totalCell.textContent = totalPayout.toLocaleString();
+                        totalCell.className = totalPayout > 0 ? 'positive total-payout-cell' : (totalPayout < 0 ? 'negative total-payout-cell' : 'zero total-payout-cell');
+                    } else {
+                        for(let i = 0; i < 3; i++) {
+                            const emptyCell = row.insertCell(); emptyCell.textContent = '-'; emptyCell.style.textAlign = 'center'; emptyCell.style.color = '#ddd';
+                            if (i === 2) { emptyCell.style.borderRight = '2px solid #1a73e8'; emptyCell.style.backgroundColor = '#f8fbff'; }
+                        }
+                    }
+                });
+                const deleteCell = row.insertCell();
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '削除'; deleteBtn.className = 'delete-btn';
+                deleteBtn.onclick = () => deleteGame(game.id);
+                deleteCell.appendChild(deleteBtn);
+            });
+            initializeGroupFilter();
+        }
+
+        function createChartData(historyData) {
+            const sortedHistory = [...historyData].sort((a, b) => a.id - b.id); 
+            const labels = [];
+            const playerPayouts = {};
+            const groupCounters = {}; 
+            const allPlayerNames = [...new Set(historyData.flatMap(h => Object.keys(h.payouts)))];
+            allPlayerNames.forEach(name => { playerPayouts[name] = []; });
+            let currentCumulatedPayout = allPlayerNames.reduce((acc, name) => { acc[name] = 0; return acc; }, {});
+
+            sortedHistory.forEach((game) => {
+                const groupName = game.group || '-';
+                if (!groupCounters[groupName]) groupCounters[groupName] = 0;
+                groupCounters[groupName]++;
+                labels.push(`${groupName} (${groupCounters[groupName]})`);
+                allPlayerNames.forEach(name => {
+                    const payout = game.payouts[name] ? Math.round(game.payouts[name].total) : 0;
+                    currentCumulatedPayout[name] += payout;
+                    playerPayouts[name].push(currentCumulatedPayout[name]);
+                });
+            });
+
+            const colors = generateColors(allPlayerNames.length);
+            const datasets = allPlayerNames.map((name, index) => ({
+                label: name, data: playerPayouts[name],
+                borderColor: colors[index], backgroundColor: colors[index] + '20',
+                borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, fill: false, tension: 0.3 
+            })).filter(dataset => dataset.data.length > 0);
+
+            return { labels, datasets, allPlayerNames };
+        }
+        
+        function generateColors(count) {
+            const palette = ['#1a73e8', '#00b894', '#d63031', '#fdcb6e', '#6c5ce7', '#e17055', '#0984e3', '#00cec9', '#636e72', '#2d3436'];
+            const colors = [];
+            for (let i = 0; i < count; i++) colors.push(palette[i % palette.length]);
+            return colors;
+        }
+
+        function drawChart(labels, datasets) {
+            const ctx = document.getElementById('payoutChart').getContext('2d');
+            if (payoutChart) payoutChart.destroy();
+            let allValues = datasets.flatMap(d => d.data);
+            if (allValues.length === 0) { payoutChart = new Chart(ctx, { type: 'line', data: {}, options: {} }); return; } 
+
+            let dataMin = Math.min(...allValues); let dataMax = Math.max(...allValues);
+            let range = dataMax - dataMin; let padding = range === 0 ? 1000 : range * 0.1; 
+            let yAxisMin = dataMin - padding; let yAxisMax = dataMax + padding;
+            let finalMin = Math.floor(yAxisMin / 100) * 100; let finalMax = Math.ceil(yAxisMax / 100) * 100;
+            if (dataMin >= 0) finalMin = 0; if (dataMax <= 0) finalMax = 0;
+
+            payoutChart = new Chart(ctx, {
+                type: 'line', data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, font: { family: "'Segoe UI', sans-serif", size: 12 } } },
+                        tooltip: {
+                            mode: 'index', intersect: false, backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            titleColor: '#333', bodyColor: '#333', borderColor: '#ddd', borderWidth: 1,
+                            titleFont: { size: 14, weight: 'bold' }, bodyFont: { size: 13 }, padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || ''; if (label) label += ': ';
+                                    if (context.parsed.y !== null) label += `${context.parsed.y > 0 ? '+' : ''}${context.parsed.y.toLocaleString()} pt`;
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                        y: { min: finalMin, max: finalMax, grid: { color: '#f0f0f0', borderDash: [4, 4] }, ticks: { font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
