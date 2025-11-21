@@ -420,7 +420,8 @@
             let defaultValues = [];
             if (count === 3) defaultValues = [2000, 0, -2000];
             else if (count === 4) defaultValues = [2000, 1000, -1000, -2000];
-            else if (count === 5) defaultValues = [2000, 1000, 0, -1000, -2000];
+            // ▼▼▼ 5人打ちのデフォルト順位点を変更しました ▼▼▼
+            else if (count === 5) defaultValues = [3000, 1500, 0, -1500, -3000];
 
             for (let i = 1; i <= count; i++) {
                 const wrapper = document.createElement('div');
@@ -484,7 +485,6 @@
             selectedParticipants.forEach(player => {
                 const card = document.createElement('div');
                 card.className = 'result-player-card';
-                // 変更点: チップのプレースホルダーを変更しました
                 card.innerHTML = `
                     <h3 style="margin-top:0; color:#1a73e8; border-bottom:1px dashed #ccc;">${player}</h3>
                     <label>±点数(pt) </label>
@@ -529,6 +529,25 @@
                 msg.className = "message error"; msg.style.display = 'block';
                 return;
             }
+
+            // ▼▼▼ 同点プレイヤーのチェックを追加 ▼▼▼
+            let scoreValues = [];
+            for (const name of participants) {
+                const s = parseFloat(document.getElementById(`${name}-score`).value);
+                if (!isNaN(s)) scoreValues.push(s);
+            }
+            
+            // スコアが入力されていて、重複がある場合
+            if (scoreValues.length === count) {
+                const uniqueScores = new Set(scoreValues);
+                if (uniqueScores.size !== scoreValues.length) {
+                    const confirmed = confirm("⚠️ 同点のプレイヤーが検出されました。\n\n同点の場合、ルールによって順位点（ウマ）を分け合うなどの調整が必要な場合があります。\n\n現在入力されている「順位」と「順位点」で確定してよろしいですか？\n（修正する場合は[キャンセル]を押して、順位点設定または点数を手動で調整してください）");
+                    if (!confirmed) {
+                        return; // 処理を中断
+                    }
+                }
+            }
+            // ▲▲▲ 追加ここまで ▲▲▲
 
             let umaPoints = [];
             for(let i=1; i<=count; i++) {
