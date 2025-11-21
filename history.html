@@ -61,6 +61,36 @@
         .memo-delete { background: none; border: none; color: #999; cursor: pointer; font-size: 1.2em; padding: 0 5px; }
         .memo-delete:hover { color: var(--accent-color-red); }
 
+        /* 精算プラン表示エリア */
+        #settlementContainer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px dashed #ddd;
+            display: none; /* デフォルトは非表示 */
+        }
+        .settlement-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .settlement-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        }
+        .payer { color: var(--accent-color-red); font-weight: bold; }
+        .receiver { color: var(--accent-color-green); font-weight: bold; }
+        .amount { font-weight: 800; font-size: 1.1em; color: #333; }
+        .arrow { font-size: 1.2em; color: #999; margin: 0 10px; }
+        .settlement-none { color: #888; font-style: italic; }
+
         /* ローディングオーバーレイ */
         #loadingOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -104,6 +134,11 @@
                     <thead><tr><th>プレイヤー</th><th>対局数</th><th>平均順位</th><th>総合収支 (pt)</th></tr></thead>
                     <tbody></tbody>
                 </table>
+            </div>
+
+            <div id="settlementContainer">
+                <h3 style="color: #555; margin-bottom: 15px;">💸 精算シミュレーション (最小回数)</h3>
+                <div id="settlementPlan"></div>
             </div>
         </div>
 
@@ -232,25 +267,45 @@
 
         // --- 描画・集計ロジック ---
         function initializeGroupFilter() {
+            // 履歴に含まれるグループ名を抽出（履歴にしか存在しない古いデータ対策）
             const historyGroups = [...new Set(historyData.map(g => g.group))].filter(g => g && g !== '全体');
-            const allGroups = [...new Set([...registeredGroups, ...historyGroups])].sort();
+            
+            // registeredGroups は登録順（古い順）に入っているため、
+            // まずこれをコピーし、履歴のみに存在するグループを後ろに追加する
+            let combinedGroups = [...registeredGroups];
+            historyGroups.forEach(g => {
+                if (!combinedGroups.includes(g)) {
+                    combinedGroups.push(g);
+                }
+            });
+
+            // "全体" を除外し、reverse() で逆順（新しい順）にする
+            const allGroups = combinedGroups.filter(g => g !== '全体').reverse();
             
             let select = document.getElementById('groupFilter');
             const currentSelected = select.value;
             select.innerHTML = '';
             
+            // 「全体」を先頭に固定
             const allOption = document.createElement('option');
             allOption.value = 'all';
             allOption.textContent = '全体 (全グループ合計)';
             select.appendChild(allOption);
 
+            // 残りのグループを新しい順に追加
             allGroups.forEach(group => {
                 const option = document.createElement('option');
                 option.value = group;
                 option.textContent = group;
                 select.appendChild(option);
             });
-            select.value = currentSelected || 'all';
+
+            // 選択状態の復元（存在しない場合は全体へ）
+            if (currentSelected && (currentSelected === 'all' || allGroups.includes(currentSelected))) {
+                select.value = currentSelected;
+            } else {
+                select.value = 'all';
+            }
         }
 
         async function deleteGame(id) {
@@ -304,6 +359,15 @@
                 totalCell.textContent = totalPayout.toLocaleString();
                 totalCell.className = totalPayout > 0 ? 'positive' : (totalPayout < 0 ? 'negative' : 'zero');
             });
+
+            // ★精算プランの表示制御
+            const settlementContainer = document.getElementById('settlementContainer');
+            if (selectedGroup === 'all') {
+                settlementContainer.style.display = 'none'; // 全体の場合は非表示
+            } else {
+                settlementContainer.style.display = 'block'; // 個別グループの場合は表示
+                calculateAndDisplaySettlement(totals);
+            }
             
             const historyBody = document.querySelector('#historyTable tbody');
             const historyHead = document.querySelector('#historyTable thead');
@@ -374,7 +438,87 @@
                 deleteBtn.onclick = () => deleteGame(game.id);
                 deleteCell.appendChild(deleteBtn);
             });
-            initializeGroupFilter();
+        }
+
+        // --- 精算ロジック ---
+        function calculateAndDisplaySettlement(totals) {
+            const container = document.getElementById('settlementPlan');
+            container.innerHTML = '';
+
+            let participants = [];
+            let totalCheck = 0;
+
+            // 1. オブジェクトから配列へ変換（丸め処理含む）
+            for (let name in totals) {
+                if (totals[name].games > 0) {
+                    let val = Math.round(totals[name].totalPayout);
+                    if (val !== 0) {
+                        participants.push({ name: name, val: val });
+                        totalCheck += val;
+                    }
+                }
+            }
+
+            // 合計が0にならない場合（入力ミスなど）の警告
+            if (Math.abs(totalCheck) > 5) { // 誤差許容
+                container.innerHTML = `<div style="color:red; font-weight:bold;">⚠️ 収支合計が ${totalCheck} pt となっており、正確な精算ができません。</div>`;
+                return;
+            }
+            if (participants.length === 0) {
+                container.innerHTML = '<div class="settlement-none">精算が必要な金額はありません。</div>';
+                return;
+            }
+
+            // 2. 債務者（マイナス）と債権者（プラス）に分ける
+            // 絶対値の大きい順にソート（これにより取引回数が最小化されやすくなる）
+            let debtors = participants.filter(p => p.val < 0).sort((a, b) => a.val - b.val); // 昇順（例: -5000, -1000）
+            let creditors = participants.filter(p => p.val > 0).sort((a, b) => b.val - a.val); // 降順（例: +4000, +2000）
+
+            let transactions = [];
+            let dIndex = 0;
+            let cIndex = 0;
+
+            // 3. マッチング処理
+            while (dIndex < debtors.length && cIndex < creditors.length) {
+                let debtor = debtors[dIndex];
+                let creditor = creditors[cIndex];
+
+                // 取引額は、負債の絶対値と債権の小さい方
+                let amount = Math.min(Math.abs(debtor.val), creditor.val);
+
+                transactions.push({
+                    from: debtor.name,
+                    to: creditor.name,
+                    amount: amount
+                });
+
+                // 残高調整
+                debtor.val += amount;
+                creditor.val -= amount;
+
+                // 完済したら次の人へ
+                // 浮動小数点誤差を考慮して 1未満なら完了とみなす
+                if (Math.abs(debtor.val) < 1) dIndex++;
+                if (creditor.val < 1) cIndex++;
+            }
+
+            // 4. 表示生成
+            if (transactions.length > 0) {
+                const ul = document.createElement('ul');
+                ul.className = 'settlement-list';
+                transactions.forEach(t => {
+                    const li = document.createElement('li');
+                    li.className = 'settlement-item';
+                    li.innerHTML = `
+                        <div><span class="payer">${t.from}</span> <span class="arrow">➡</span> <span class="receiver">${t.to}</span></div>
+                        <span class="amount">${t.amount.toLocaleString()} pt</span>
+                    `;
+                    ul.appendChild(li);
+                });
+                container.appendChild(ul);
+            } else {
+                 container.innerHTML = '<div class="settlement-none">全員の収支が0です。</div>';
+            }
         }
 
         function createChartData(historyData) {
