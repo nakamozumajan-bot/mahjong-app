@@ -41,6 +41,9 @@
         .zero { color: #aaa; }
         .total-payout-cell { font-weight: 800; background-color: #fdfdfd; border-right: 2px solid var(--main-color); }
 
+        /* チップ表示用スタイル */
+        .chip-info { font-size: 0.75em; color: #666; display: block; font-weight: normal; margin-top: 2px; }
+
         button.delete-btn {
             background-color: #fff; color: var(--accent-color-red);
             border: 1px solid var(--accent-color-red); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
@@ -333,12 +336,30 @@
                 referenceNames.forEach(pName => {
                     const payoutData = game.payouts[pName];
                     if (payoutData) {
-                        const scoreCell = row.insertCell(); const scorePt = Math.round(payoutData.scorePt);
-                        scoreCell.textContent = scorePt; scoreCell.className = scorePt > 0 ? 'positive' : (scorePt < 0 ? 'negative' : 'zero');
-                        const bonusCell = row.insertCell(); const bonusPt = Math.round(payoutData.bonusPt);
-                        bonusCell.textContent = bonusPt; bonusCell.className = bonusPt > 0 ? 'positive' : (bonusPt < 0 ? 'negative' : 'zero');
-                        const totalCell = row.insertCell(); const totalPayout = Math.round(payoutData.total);
-                        totalCell.textContent = totalPayout.toLocaleString();
+                        // 点差(Score)
+                        const scoreCell = row.insertCell(); 
+                        const scorePt = Math.round(payoutData.scorePt);
+                        scoreCell.textContent = scorePt; 
+                        scoreCell.className = scorePt > 0 ? 'positive' : (scorePt < 0 ? 'negative' : 'zero');
+
+                        // 順位点(Uma)
+                        const bonusCell = row.insertCell(); 
+                        const bonusPt = Math.round(payoutData.bonusPt);
+                        bonusCell.textContent = bonusPt; 
+                        bonusCell.className = bonusPt > 0 ? 'positive' : (bonusPt < 0 ? 'negative' : 'zero');
+
+                        // 合計(Total) & チップ
+                        const totalCell = row.insertCell(); 
+                        const totalPayout = Math.round(payoutData.total);
+                        
+                        let totalHtml = `<span style="font-size:1.1em">${totalPayout.toLocaleString()}</span>`;
+                        // チップ情報がある場合、合計点の下に表示
+                        if (payoutData.chipPt && payoutData.chipPt !== 0) {
+                            const cSign = payoutData.chipPt > 0 ? '+' : '';
+                            totalHtml += `<span class="chip-info">(ﾁｯﾌﾟ: ${cSign}${payoutData.chipPt})</span>`;
+                        }
+
+                        totalCell.innerHTML = totalHtml;
                         totalCell.className = totalPayout > 0 ? 'positive total-payout-cell' : (totalPayout < 0 ? 'negative total-payout-cell' : 'zero total-payout-cell');
                     } else {
                         for(let i = 0; i < 3; i++) {
