@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🀄 麻雀収支管理 - データ入力 (チップ対応版)</title>
+    <title>🀄 公大中麻雀収支管理 </title>
     <style>
         :root {
             --main-color: #1a73e8;
@@ -541,7 +541,7 @@
             if (scoreValues.length === count) {
                 const uniqueScores = new Set(scoreValues);
                 if (uniqueScores.size !== scoreValues.length) {
-                    const confirmed = confirm("⚠️ 同点のプレイヤーが検出されました。\n\n同点の場合、ルールによって順位点（ウマ）を分け合うなどの調整が必要な場合があります。\n\n現在入力されている「順位」と「順位点」で確定してよろしいですか？\n（修正する場合は[キャンセル]を押して、順位点設定または点数を手動で調整してください）");
+                    const confirmed = confirm("⚠️ 同点のプレイヤーが検出されました。\n\n同点の場合、ルールによって順位点を分け合うなどの調整が必要な場合があります。\n\n現在入力されている「順位」と「順位点」で確定してよろしいですか？\n（修正する場合は[キャンセル]を押して、順位点設定または点数を手動で調整してください）");
                     if (!confirmed) {
                         return; // 処理を中断
                     }
