@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🀄 公大中麻雀倶楽部 - データ入力</title>
+    <title>🀄️ 公大中麻雀倶楽部 - データ入力</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -46,13 +46,12 @@
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-sub); font-size: 0.9rem; }
         
-        /* ★変更点: フォントをNoto Sans JPに変更し、等幅数字(tabular-nums)を指定 */
         input[type="text"], input[type="number"], select { 
             width: 100%; padding: 12px 15px; box-sizing: border-box; border: 2px solid transparent; 
             background-color: var(--input-bg); border-radius: 10px; 
             font-size: 1rem; color: var(--text-main); transition: all 0.2s; 
             font-family: 'Noto Sans JP', sans-serif; 
-            font-variant-numeric: tabular-nums; /* 数字の幅を揃える */
+            font-variant-numeric: tabular-nums; 
             font-weight: 500;
         }
         input:focus, select:focus { outline: none; background-color: #fff; border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
@@ -96,7 +95,6 @@
         .chip-player-card h3 { color: #d97706; }
         .chip-player-card h3::before { background: #d97706; }
 
-        /* ★変更点: ここもフォント変更 */
         .calculated-payout { 
             margin-top: 15px; padding-top: 15px; border-top: 2px dashed #e5e7eb; text-align: right; 
             font-size: 1.4rem; font-weight: 800; 
@@ -126,7 +124,7 @@
 
     <div class="container">
         <header>
-            <h1>🀄 公大中麻雀倶楽部</h1>
+            <h1>🀄️ 公大中麻雀倶楽部</h1>
             <a href="history.html" class="nav-link"><span>📈 履歴・収支・グラフを見る</span></a>
         </header>
 
@@ -175,7 +173,7 @@
             </div>
 
             <div class="form-group">
-                <label>順位点設定 </label>
+                <label>順位点設定</label>
                 <div id="umaInputsContainer"></div>
             </div>
 
@@ -455,6 +453,7 @@
             selected.forEach(player => {
                 const card = document.createElement('div'); card.className = 'result-player-card';
                 // チップ入力を削除
+                // ★修正: 順位入力欄のreadonlyを削除し、編集可能なスタイルに変更
                 card.innerHTML = `
                     <h3>${player}</h3>
                     <div class="form-group" style="margin-bottom:10px;">
@@ -462,8 +461,8 @@
                         <input type="number" id="${player}-score" placeholder="0" oninput="autoCalculateRanks()" style="font-size:1.2rem; font-weight:bold;">
                     </div>
                     <div style="margin-top:10px;">
-                        <label style="font-size:0.8rem;">順位</label>
-                        <input type="number" id="${player}-rank" min="1" max="${count}" placeholder="-" readonly style="background:#f3f4f6; color:#666;">
+                        <label style="font-size:0.8rem;">順位 </label>
+                        <input type="number" id="${player}-rank" min="1" max="${count}" placeholder="自動" style="font-weight:bold;">
                     </div>
                     <div id="${player}-payout" class="calculated-payout zero-payout">--</div>
                 `;
@@ -502,7 +501,12 @@
             const participants = getSelectedParticipants();
             let scores = participants.map(name => ({ name: name, score: document.getElementById(`${name}-score`).value === "" ? -Infinity : parseFloat(document.getElementById(`${name}-score`).value) }));
             scores.sort((a, b) => b.score - a.score);
-            scores.forEach((item, index) => { document.getElementById(`${item.name}-rank`).value = item.score !== -Infinity ? index + 1 : ""; });
+            scores.forEach((item, index) => { 
+                // 手動入力のための配慮として、scoreが入力されている場合のみ自動入力
+                if(item.score !== -Infinity) {
+                     document.getElementById(`${item.name}-rank`).value = index + 1;
+                }
+            });
         }
 
         // --- 対局記録実行 (素点のみ) ---
