@@ -2,121 +2,286 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📈 麻雀収支管理 - 履歴・収支 (クラウド共有版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>📈 中百舌鳥麻雀収支管理 - 履歴・収支</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --main-color: #1a73e8; --accent-color-green: #00b894;
-            --accent-color-red: #d63031; --accent-color-yellow: #ffc107;
-            --bg-color: #f0f2f5; --card-bg: #ffffff; --border-color: #e9ecef;
-            --text-color-dark: #333; --text-color-light: #666;
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border-radius: 16px;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
         }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background-color: var(--bg-color); color: var(--text-color-dark); line-height: 1.6; }
-        .container { max-width: 1400px; margin: auto; }
-        h1 { color: var(--main-color); margin-bottom: 10px; font-size: 2em; }
-        h2 { border-left: 5px solid var(--main-color); padding-left: 15px; margin-bottom: 20px; font-weight: 600; font-size: 1.4em; }
 
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-bottom: 60px;
+        }
+
+        /* Header & Nav */
+        header { text-align: center; margin-bottom: 30px; }
+        h1 {
+            color: var(--primary);
+            font-size: 1.8rem;
+            margin: 0 0 15px 0;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.5);
+        }
         .nav-link {
-            display: inline-block; margin-bottom: 25px; padding: 10px 20px;
-            background-color: var(--accent-color-yellow); color: var(--text-color-dark);
-            text-decoration: none; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            background: #fff;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 700;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            border: 1px solid #e5e7eb;
+        }
+        .nav-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            color: var(--primary);
         }
 
-        .card { background: var(--card-bg); border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        #chartContainer { position: relative; width: 100%; height: 400px; }
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255,255,255,0.5);
+            overflow: hidden; /* For inner content */
+        }
 
+        h2 {
+            font-size: 1.2rem;
+            color: var(--text-main);
+            margin-top: 0;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Filter Controls */
         .filter-container {
-            margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
-            background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); width: fit-content;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 12px;
         }
-        select { padding: 8px 30px 8px 12px; border: 1px solid #ced4da; border-radius: 4px; cursor: pointer; }
+        .filter-container label { font-weight: bold; color: var(--text-sub); }
+        select {
+            padding: 10px 35px 10px 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background-color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
 
-        .table-wrapper { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); }
-        table { width: 100%; border-collapse: collapse; background-color: white; white-space: nowrap; }
-        th { background-color: #f1f3f4; padding: 12px 15px; text-align: left; border-bottom: 2px solid #dce0e4; position: sticky; top: 0; z-index: 10; }
-        td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); }
-        .positive { color: var(--accent-color-green); font-weight: bold; }
-        .negative { color: var(--accent-color-red); font-weight: bold; }
-        .zero { color: #aaa; }
-        .total-payout-cell { font-weight: 800; background-color: #fdfdfd; border-right: 2px solid var(--main-color); }
+        /* Chart */
+        #chartContainer { position: relative; width: 100%; height: 350px; }
 
-        /* チップ表示用スタイル */
-        .chip-info { font-size: 0.75em; color: #666; display: block; font-weight: normal; margin-top: 2px; }
+        /* Tables (General) */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            white-space: nowrap;
+            font-size: 0.95rem;
+        }
+        th {
+            background-color: #f9fafb;
+            color: var(--text-sub);
+            font-weight: 600;
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 2px solid #e5e7eb;
+            position: sticky; top: 0; z-index: 10;
+        }
+        td {
+            padding: 14px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            color: var(--text-main);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background-color: #f9fafb; }
 
+        /* Numbers & Colors */
+        .positive { color: var(--secondary); font-weight: bold; font-family: 'Roboto Mono', monospace; }
+        .negative { color: var(--danger); font-weight: bold; font-family: 'Roboto Mono', monospace; }
+        .zero { color: #d1d5db; font-family: 'Roboto Mono', monospace; }
+
+        /* History Table Specifics */
+        .total-payout-cell {
+            font-weight: 800;
+            background-color: #fdfdfd;
+            border-right: 3px solid var(--primary-light) !important;
+            font-size: 1.1rem;
+        }
+        .chip-info {
+            font-size: 0.75em; color: #9ca3af; display: block; font-weight: normal;
+        }
+
+        /* Buttons */
         button.delete-btn {
-            background-color: #fff; color: var(--accent-color-red);
-            border: 1px solid var(--accent-color-red); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
+            background: #fee2e2; color: var(--danger);
+            border: none; padding: 6px 12px;
+            border-radius: 6px; cursor: pointer;
+            font-weight: bold; font-size: 0.8rem;
+            transition: all 0.2s;
         }
-        button.delete-btn:hover { background-color: var(--accent-color-red); color: white; }
+        button.delete-btn:hover { background: var(--danger); color: white; }
 
-        /* メモ */
-        .memo-input-area { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        textarea.memo-textarea { width: 100%; height: 80px; padding: 12px; border: 1px solid #ced4da; border-radius: 8px; resize: vertical; box-sizing: border-box; }
-        .memo-submit-btn { align-self: flex-end; background-color: var(--main-color); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        /* Memo Section */
+        .memo-input-area {
+            display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px;
+        }
+        textarea.memo-textarea {
+            width: 100%; height: 100px; padding: 15px;
+            border: 2px solid #e5e7eb; border-radius: 12px;
+            resize: vertical; font-size: 1rem;
+            font-family: inherit; box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        textarea.memo-textarea:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+        .memo-submit-btn {
+            align-self: flex-end;
+            background: var(--primary); color: white;
+            border: none; padding: 12px 25px;
+            border-radius: 50px; cursor: pointer;
+            font-weight: bold; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+            transition: all 0.2s;
+        }
+        .memo-submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(79, 70, 229, 0.4); }
+
         .memo-list { display: flex; flex-direction: column; gap: 15px; }
-        .memo-item { background-color: #f8f9fa; border-left: 4px solid var(--main-color); padding: 15px; border-radius: 4px; }
-        .memo-meta { font-size: 0.85em; color: var(--text-color-light); margin-bottom: 5px; display: flex; justify-content: space-between; }
-        .memo-content { white-space: pre-wrap; }
-        .memo-delete { background: none; border: none; color: #999; cursor: pointer; font-size: 1.2em; padding: 0 5px; }
-        .memo-delete:hover { color: var(--accent-color-red); }
+        .memo-item {
+            background: #fff;
+            border-left: 5px solid var(--primary);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .memo-meta {
+            font-size: 0.8rem; color: #9ca3af; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .memo-delete {
+            background: none; border: none; color: #d1d5db;
+            font-size: 1.2rem; cursor: pointer; padding: 0 5px;
+            transition: color 0.2s;
+        }
+        .memo-delete:hover { color: var(--danger); }
+        .memo-content { white-space: pre-wrap; color: var(--text-main); line-height: 1.6; }
 
-        /* 精算プラン表示エリア */
+        /* Settlement Section */
         #settlementContainer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px dashed #ddd;
-            display: none; /* デフォルトは非表示 */
+            margin-top: 30px; padding-top: 25px;
+            border-top: 2px dashed #e5e7eb;
+            display: none;
         }
         .settlement-list {
-            list-style: none;
-            padding: 0;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            list-style: none; padding: 0; margin: 0;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 15px;
         }
         .settlement-item {
-            background-color: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 15px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
-        .payer { color: var(--accent-color-red); font-weight: bold; }
-        .receiver { color: var(--accent-color-green); font-weight: bold; }
-        .amount { font-weight: 800; font-size: 1.1em; color: #333; }
-        .arrow { font-size: 1.2em; color: #999; margin: 0 10px; }
-        .settlement-none { color: #888; font-style: italic; }
+        .payer { color: var(--danger); font-weight: bold; }
+        .receiver { color: var(--secondary); font-weight: bold; }
+        .amount { font-weight: 800; font-size: 1.2em; color: var(--text-main); font-family: 'Roboto Mono', monospace; }
+        .arrow { color: #d1d5db; margin: 0 10px; font-size: 1.2em; }
+        .settlement-none { color: #9ca3af; font-style: italic; text-align: center; width: 100%; }
 
-        /* ローディングオーバーレイ */
+        /* Loading Overlay */
         #loadingOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(5px);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 9999;
         }
         .spinner {
-            border: 4px solid #f3f3f3; border-top: 4px solid var(--main-color);
-            border-radius: 50%; width: 40px; height: 40px;
-            animation: spin 1s linear infinite; margin-bottom: 10px;
+            width: 50px; height: 50px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite;
+            margin-bottom: 15px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        @media (max-width: 768px) { body { padding: 10px; } .card { padding: 15px; } }
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            .card { padding: 20px; }
+            .filter-container { flex-direction: column; align-items: stretch; }
+            select { width: 100%; }
+        }
     </style>
 </head>
 <body>
     <div id="loadingOverlay">
         <div class="spinner"></div>
-        <div style="font-weight: bold; color: #555;">データを読み込み中...<br><span style="font-size:0.8em">※スプレッドシートと通信しています</span></div>
+        <div style="font-weight: bold; color: var(--primary);">データを読み込み中...</div>
     </div>
 
     <div class="container">
-        <h1>📈 麻雀収支管理</h1>
-        <a href="index.html" class="nav-link">📝 データ入力ページへ戻る</a>
+        <header>
+            <h1>📈 中百舌鳥麻雀収支管理</h1>
+            <a href="index.html" class="nav-link">
+                <span>📝 データ入力ページへ戻る</span>
+            </a>
+        </header>
 
         <div class="card">
             <h2>📊 累計収支推移グラフ</h2>
@@ -124,7 +289,7 @@
         </div>
 
         <div class="card">
-            <h2>💰 グループ別累計収支</h2>
+            <h2>👑 グループ別累計収支</h2>
             <div class="filter-container">
                 <label for="groupFilter">集計グループ:</label>
                 <select id="groupFilter" onchange="updateDisplay()"></select>
@@ -135,9 +300,10 @@
                     <tbody></tbody>
                 </table>
             </div>
-
             <div id="settlementContainer">
-                <h3 style="color: #555; margin-bottom: 15px;">💸 精算シミュレーション (最小回数)</h3>
+                <h3 style="color: var(--text-sub); margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+                    ⚖️ 精算シミュレーション <span style="font-size:0.7em; font-weight:normal; background:#f3f4f6; padding:2px 8px; border-radius:10px;">最小回数</span>
+                </h3>
                 <div id="settlementPlan"></div>
             </div>
         </div>
@@ -145,7 +311,7 @@
         <div class="card">
             <h2>📝 メモ・掲示板</h2>
             <div class="memo-input-area">
-                <textarea id="memoText" class="memo-textarea" placeholder="対局の振り返りや連絡事項などを入力してください..."></textarea>
+                <textarea id="memoText" class="memo-textarea" placeholder="対局の振り返りや連絡事項、次回の予定などを入力してください..."></textarea>
                 <button onclick="addMemo()" class="memo-submit-btn">投稿する</button>
             </div>
             <div id="memoListContainer" class="memo-list"></div>
@@ -161,37 +327,43 @@
 
     <script>
         // ============================================================
-        // ★★★ ここに取得したURLを貼り付けてください！ ★★★
+        // ★★★ ここにSupabaseのURLとAPIキーを貼り付けてください ★★★
         // ============================================================
-        const API_URL = "https://script.google.com/macros/s/AKfycby3P43pBq22WzjMOHeFzMqZ9ZWkkosJUjGKfByzllRwG2zipHOQOOx2SIO-pdKn1Egj/exec";
+        const SUPABASE_URL = "https://mikcjkqvdjkqkcgsufkh.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pa2Nqa3F2ZGprcWtjZ3N1ZmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NTU5ODIsImV4cCI6MjA3OTQzMTk4Mn0.O4gR7N9279zAsgunCDZre4FJAM2gHT4uwUlFkjEhm-k";
         // ============================================================
+
+        // ------------------------------------------------------------
+        // 以下、ロジックは以前のコードと全く同じです
+        // ------------------------------------------------------------
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let historyData = []; 
         let registeredGroups = [];
         let memos = [];
         let payoutChart = null; 
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadAllData();
-        });
+        document.addEventListener('DOMContentLoaded', () => { loadAllData(); });
 
         async function loadAllData() {
             showLoading(true);
             try {
-                const response = await fetch(API_URL);
-                const data = await response.json();
+                const { data, error } = await supabase.from('app_data').select('*');
+                if (error) throw error;
 
-                historyData = JSON.parse(data.mahjong_variable_score_history_int || "[]");
-                registeredGroups = JSON.parse(data.mahjong_registered_groups || "[]");
-                memos = JSON.parse(data.mahjong_memos || "[]");
+                if (data) {
+                    data.forEach(row => {
+                        if (row.key === 'mahjong_variable_score_history_int') historyData = row.value || [];
+                        if (row.key === 'mahjong_registered_groups') registeredGroups = row.value || [];
+                        if (row.key === 'mahjong_memos') memos = row.value || [];
+                    });
+                }
 
                 initializeGroupFilter();
                 renderMemos();
                 updateDisplay();
-
             } catch (error) {
-                alert("データの読み込みに失敗しました。\n" + error);
-                console.error(error);
+                alert("データの読み込みに失敗しました。\n" + error.message);
             } finally {
                 showLoading(false);
             }
@@ -200,11 +372,10 @@
         async function saveData(key, value) {
             showLoading(true);
             try {
-                const payload = { key: key, value: JSON.stringify(value) };
-                await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const { error } = await supabase.from('app_data').upsert({ key: key, value: value }, { onConflict: 'key' });
+                if (error) throw error;
             } catch (error) {
-                alert("データの保存に失敗しました。\n" + error);
-                console.error(error);
+                alert("データの保存に失敗しました。\n" + error.message);
             } finally {
                 showLoading(false);
             }
@@ -214,22 +385,12 @@
             document.getElementById('loadingOverlay').style.display = isLoading ? 'flex' : 'none';
         }
 
-        // --- メモ機能 ---
         async function addMemo() {
-            const textarea = document.getElementById('memoText');
-            const text = textarea.value.trim();
+            const text = document.getElementById('memoText').value.trim();
             if (!text) return;
-
-            const newMemo = {
-                id: Date.now(),
-                text: text,
-                date: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-            };
-
-            memos.unshift(newMemo);
+            memos.unshift({ id: Date.now(), text: text, date: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) });
             await saveData('mahjong_memos', memos);
-            renderMemos();
-            textarea.value = '';
+            renderMemos(); document.getElementById('memoText').value = '';
         }
 
         async function deleteMemo(id) {
@@ -242,70 +403,28 @@
 
         function renderMemos() {
             const container = document.getElementById('memoListContainer');
-            container.innerHTML = '';
-            if (memos.length === 0) {
-                container.innerHTML = '<div style="color:#999; text-align:center; padding:10px;">メモはまだありません。</div>';
-                return;
-            }
+            container.innerHTML = memos.length === 0 ? '<div style="color:#9ca3af; text-align:center; padding:20px;">メモはまだありません。</div>' : '';
             memos.forEach(memo => {
                 const div = document.createElement('div');
                 div.className = 'memo-item';
-                div.innerHTML = `
-                    <div class="memo-meta">
-                        <span>${memo.date}</span>
-                        <button class="memo-delete" onclick="deleteMemo(${memo.id})" title="削除">&times;</button>
-                    </div>
-                    <div class="memo-content">${escapeHtml(memo.text)}</div>
-                `;
+                div.innerHTML = `<div class="memo-meta"><span>${memo.date}</span><button class="memo-delete" onclick="deleteMemo(${memo.id})" title="削除">×</button></div><div class="memo-content">${memo.text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>`;
                 container.appendChild(div);
             });
         }
-        
-        function escapeHtml(unsafe) {
-            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
 
-        // --- 描画・集計ロジック ---
         function initializeGroupFilter() {
-            // 履歴に含まれるグループ名を抽出（履歴にしか存在しない古いデータ対策）
             const historyGroups = [...new Set(historyData.map(g => g.group))].filter(g => g && g !== '全体');
-            
-            // registeredGroups は登録順（古い順）に入っているため、
-            // まずこれをコピーし、履歴のみに存在するグループを後ろに追加する
-            let combinedGroups = [...registeredGroups];
-            historyGroups.forEach(g => {
-                if (!combinedGroups.includes(g)) {
-                    combinedGroups.push(g);
-                }
-            });
-
-            // "全体" を除外し、reverse() で逆順（新しい順）にする
-            const allGroups = combinedGroups.filter(g => g !== '全体').reverse();
+            let combined = [...registeredGroups];
+            historyGroups.forEach(g => { if (!combined.includes(g)) combined.push(g); });
+            const allGroups = combined.filter(g => g !== '全体').reverse();
             
             let select = document.getElementById('groupFilter');
-            const currentSelected = select.value;
-            select.innerHTML = '';
-            
-            // 「全体」を先頭に固定
-            const allOption = document.createElement('option');
-            allOption.value = 'all';
-            allOption.textContent = '全体 (全グループ合計)';
-            select.appendChild(allOption);
-
-            // 残りのグループを新しい順に追加
-            allGroups.forEach(group => {
-                const option = document.createElement('option');
-                option.value = group;
-                option.textContent = group;
-                select.appendChild(option);
+            const current = select.value;
+            select.innerHTML = '<option value="all">全体 (全グループ合計)</option>';
+            allGroups.forEach(g => {
+                const op = document.createElement('option'); op.value = g; op.textContent = g; select.appendChild(op);
             });
-
-            // 選択状態の復元（存在しない場合は全体へ）
-            if (currentSelected && (currentSelected === 'all' || allGroups.includes(currentSelected))) {
-                select.value = currentSelected;
-            } else {
-                select.value = 'all';
-            }
+            select.value = (current && (current === 'all' || allGroups.includes(current))) ? current : 'all';
         }
 
         async function deleteGame(id) {
@@ -317,283 +436,172 @@
         }
 
         function updateDisplay() {
-            const filterEl = document.getElementById('groupFilter');
-            const selectedGroup = filterEl ? filterEl.value : 'all';
+            const group = document.getElementById('groupFilter').value;
+            const filtered = historyData.filter(g => group === 'all' || g.group === group);
 
-            const filteredHistory = historyData.filter(game => 
-                selectedGroup === 'all' || game.group === selectedGroup
-            );
-
-            const { labels, datasets, allPlayerNames } = createChartData(filteredHistory);
+            const { labels, datasets, allPlayerNames } = createChartData(filtered);
             drawChart(labels, datasets);
 
             const totals = {};
-            const playerNames = allPlayerNames; 
-            playerNames.forEach(name => {
-                totals[name] = { games: 0, totalRank: 0, totalScorePt: 0, totalBonusPt: 0, totalPayout: 0 };
-            });
+            allPlayerNames.forEach(n => { totals[n] = { games:0, totalRank:0, totalPayout:0 }; });
 
-            filteredHistory.forEach(game => {
-                Object.entries(game.payouts).forEach(([name, result]) => {
-                    if (!totals[name]) totals[name] = { games: 0, totalRank: 0, totalScorePt: 0, totalBonusPt: 0, totalPayout: 0 };
-                    if (totals[name]) {
-                        totals[name].games++;
-                        totals[name].totalRank += result.rank;
-                        totals[name].totalScorePt += result.scorePt; 
-                        totals[name].totalBonusPt += result.bonusPt;
-                        totals[name].totalPayout += result.total;
-                    }
+            filtered.forEach(g => {
+                Object.entries(g.payouts).forEach(([n, r]) => {
+                    if (!totals[n]) totals[n] = { games:0, totalRank:0, totalPayout:0 };
+                    totals[n].games++; totals[n].totalRank += r.rank; totals[n].totalPayout += r.total;
                 });
             });
 
-            const resultsBody = document.querySelector('#resultsTable tbody');
-            resultsBody.innerHTML = '';
-            Object.entries(totals).filter(([, data]) => data.games > 0).sort(([, a], [, b]) => b.totalPayout - a.totalPayout).forEach(([name, data]) => {
-                const row = resultsBody.insertRow();
-                const avgRank = data.games > 0 ? (data.totalRank / data.games).toFixed(2) : 'N/A';
-                row.insertCell().textContent = name;
-                row.insertCell().textContent = data.games;
-                row.insertCell().textContent = avgRank;
-                const totalCell = row.insertCell();
-                const totalPayout = Math.round(data.totalPayout);
-                totalCell.textContent = totalPayout.toLocaleString();
-                totalCell.className = totalPayout > 0 ? 'positive' : (totalPayout < 0 ? 'negative' : 'zero');
+            const tb = document.querySelector('#resultsTable tbody'); tb.innerHTML = '';
+            Object.entries(totals).filter(([,d]) => d.games > 0).sort(([,a],[,b]) => b.totalPayout - a.totalPayout).forEach(([n, d]) => {
+                const r = tb.insertRow();
+                r.insertCell().textContent = n; r.insertCell().textContent = d.games;
+                r.insertCell().textContent = (d.totalRank / d.games).toFixed(2);
+                const c = r.insertCell(); c.textContent = Math.round(d.totalPayout).toLocaleString();
+                c.className = d.totalPayout > 0 ? 'positive' : (d.totalPayout < 0 ? 'negative' : 'zero');
             });
 
-            // ★精算プランの表示制御
-            const settlementContainer = document.getElementById('settlementContainer');
-            if (selectedGroup === 'all') {
-                settlementContainer.style.display = 'none'; // 全体の場合は非表示
-            } else {
-                settlementContainer.style.display = 'block'; // 個別グループの場合は表示
-                calculateAndDisplaySettlement(totals);
-            }
+            const setCon = document.getElementById('settlementContainer');
+            if (group === 'all') setCon.style.display = 'none';
+            else { setCon.style.display = 'block'; calculateAndDisplaySettlement(totals); }
             
-            const historyBody = document.querySelector('#historyTable tbody');
-            const historyHead = document.querySelector('#historyTable thead');
-            historyBody.innerHTML = ''; historyHead.innerHTML = '';
-            const referenceNames = playerNames.sort();
+            const hb = document.querySelector('#historyTable tbody');
+            const hh = document.querySelector('#historyTable thead');
+            hb.innerHTML = ''; hh.innerHTML = '';
+            const refNames = allPlayerNames.sort();
             
-            if (referenceNames.length > 0) {
-                const headerRow = historyHead.insertRow();
-                headerRow.insertCell().innerHTML = '日時';
-                headerRow.insertCell().innerHTML = 'グループ';
-                headerRow.insertCell().innerHTML = '人数';
-                for(let i=1; i <= 5; i++) headerRow.insertCell().innerHTML = `${i}位`;
-                referenceNames.forEach(name => {
-                    headerRow.insertCell().innerHTML = `<span style="font-size:0.9em; color:#888">${name}</span><br>点差`;
-                    headerRow.insertCell().innerHTML = `<span style="font-size:0.9em; color:#888">${name}</span><br>順位点`;
-                    const totalHeaderCell = headerRow.insertCell();
-                    totalHeaderCell.innerHTML = `<span style="font-size:0.9em; color:#1a73e8">${name}</span><br>合計`;
-                    totalHeaderCell.style.borderRight = '2px solid #1a73e8';
-                    totalHeaderCell.style.backgroundColor = '#f8fbff';
+            if (refNames.length > 0) {
+                const hr = hh.insertRow();
+                ['日時','グループ','人数'].forEach(t => hr.insertCell().innerHTML = t);
+                for(let i=1; i<=5; i++) hr.insertCell().innerHTML = `${i}位`;
+                refNames.forEach(n => {
+                    hr.insertCell().innerHTML = `<span style="font-size:0.9em; color:#9ca3af">${n}</span><br>点差`;
+                    hr.insertCell().innerHTML = `<span style="font-size:0.9em; color:#9ca3af">${n}</span><br>順位点`;
+                    const tc = hr.insertCell(); tc.innerHTML = `<span style="font-size:0.9em; color:var(--primary)">${n}</span><br>合計`;
+                    tc.style.borderRight = '3px solid var(--primary-light)'; tc.style.backgroundColor = '#f8fafc';
                 });
-                headerRow.insertCell().innerHTML = '操作';
+                hr.insertCell().innerHTML = '操作';
             }
 
-            [...filteredHistory].reverse().forEach(game => {
-                const row = historyBody.insertRow();
-                row.insertCell().textContent = game.date.split(' ')[0]; 
-                row.insertCell().textContent = game.group || '-';
-                row.insertCell().textContent = game.playerCount + "人";
-                for(let i=1; i <= 5; i++) row.insertCell().textContent = game.ranks[i] || (i > game.playerCount ? '-' : 'N/A');
-                referenceNames.forEach(pName => {
-                    const payoutData = game.payouts[pName];
-                    if (payoutData) {
-                        // 点差(Score)
-                        const scoreCell = row.insertCell(); 
-                        const scorePt = Math.round(payoutData.scorePt);
-                        scoreCell.textContent = scorePt; 
-                        scoreCell.className = scorePt > 0 ? 'positive' : (scorePt < 0 ? 'negative' : 'zero');
-
-                        // 順位点(Uma)
-                        const bonusCell = row.insertCell(); 
-                        const bonusPt = Math.round(payoutData.bonusPt);
-                        bonusCell.textContent = bonusPt; 
-                        bonusCell.className = bonusPt > 0 ? 'positive' : (bonusPt < 0 ? 'negative' : 'zero');
-
-                        // 合計(Total) & チップ
-                        const totalCell = row.insertCell(); 
-                        const totalPayout = Math.round(payoutData.total);
-                        
-                        let totalHtml = `<span style="font-size:1.1em">${totalPayout.toLocaleString()}</span>`;
-                        // チップ情報がある場合、合計点の下に表示
-                        if (payoutData.chipPt && payoutData.chipPt !== 0) {
-                            const cSign = payoutData.chipPt > 0 ? '+' : '';
-                            totalHtml += `<span class="chip-info">(ﾁｯﾌﾟ: ${cSign}${payoutData.chipPt})</span>`;
-                        }
-
-                        totalCell.innerHTML = totalHtml;
-                        totalCell.className = totalPayout > 0 ? 'positive total-payout-cell' : (totalPayout < 0 ? 'negative total-payout-cell' : 'zero total-payout-cell');
+            [...filtered].reverse().forEach(g => {
+                const r = hb.insertRow();
+                const dp = g.date.split(' ');
+                r.insertCell().innerHTML = dp.length >= 2 ? `${dp[0]}<br><span style="font-size:0.85em; color:#9ca3af">${dp[1]}</span>` : g.date;
+                r.insertCell().textContent = g.group || '-'; r.insertCell().textContent = g.playerCount + "人";
+                for(let i=1; i<=5; i++) r.insertCell().textContent = g.ranks[i] || (i > g.playerCount ? '-' : 'N/A');
+                refNames.forEach(pn => {
+                    const pd = g.payouts[pn];
+                    if (pd) {
+                        const sc = r.insertCell(); sc.textContent = Math.round(pd.scorePt); sc.className = pd.scorePt>0?'positive':(pd.scorePt<0?'negative':'zero');
+                        const bc = r.insertCell(); bc.textContent = Math.round(pd.bonusPt); bc.className = pd.bonusPt>0?'positive':(pd.bonusPt<0?'negative':'zero');
+                        const tc = r.insertCell(); 
+                        let th = `<span>${Math.round(pd.total).toLocaleString()}</span>`;
+                        if (pd.chipPt) th += `<span class="chip-info">(ﾁｯﾌﾟ:${pd.chipPt>0?'+':''}${pd.chipPt})</span>`;
+                        tc.innerHTML = th; tc.className = pd.total>0?'positive total-payout-cell':(pd.total<0?'negative total-payout-cell':'zero total-payout-cell');
                     } else {
-                        for(let i = 0; i < 3; i++) {
-                            const emptyCell = row.insertCell(); emptyCell.textContent = '-'; emptyCell.style.textAlign = 'center'; emptyCell.style.color = '#ddd';
-                            if (i === 2) { emptyCell.style.borderRight = '2px solid #1a73e8'; emptyCell.style.backgroundColor = '#f8fbff'; }
+                        for(let i=0; i<3; i++) {
+                            const c = r.insertCell(); c.textContent = '-'; c.style.textAlign='center'; c.style.color='#e5e7eb';
+                            if(i===2) { c.style.borderRight='3px solid var(--primary-light)'; c.style.backgroundColor='#f8fafc'; }
                         }
                     }
                 });
-                const deleteCell = row.insertCell();
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = '削除'; deleteBtn.className = 'delete-btn';
-                deleteBtn.onclick = () => deleteGame(game.id);
-                deleteCell.appendChild(deleteBtn);
+                const dc = r.insertCell();
+                const btn = document.createElement('button'); btn.textContent = '削除'; btn.className = 'delete-btn';
+                btn.onclick = () => deleteGame(g.id); dc.appendChild(btn);
             });
         }
 
-        // --- 精算ロジック ---
         function calculateAndDisplaySettlement(totals) {
-            const container = document.getElementById('settlementPlan');
-            container.innerHTML = '';
-
-            let participants = [];
-            let totalCheck = 0;
-
-            // 1. オブジェクトから配列へ変換（丸め処理含む）
-            for (let name in totals) {
-                if (totals[name].games > 0) {
-                    let val = Math.round(totals[name].totalPayout);
-                    if (val !== 0) {
-                        participants.push({ name: name, val: val });
-                        totalCheck += val;
-                    }
+            const container = document.getElementById('settlementPlan'); container.innerHTML = '';
+            let pts = [], check = 0;
+            for (let n in totals) {
+                if (totals[n].games > 0) {
+                    let v = Math.round(totals[n].totalPayout);
+                    if (v !== 0) { pts.push({name:n, val:v}); check += v; }
                 }
             }
+            if (Math.abs(check) > 5) { container.innerHTML = `<div style="color:var(--danger); font-weight:bold;">⚠️ 合計 ${check} pt (不整合)</div>`; return; }
+            if (pts.length === 0) { container.innerHTML = '<div class="settlement-none">精算なし</div>'; return; }
 
-            // 合計が0にならない場合（入力ミスなど）の警告
-            if (Math.abs(totalCheck) > 5) { // 誤差許容
-                container.innerHTML = `<div style="color:red; font-weight:bold;">⚠️ 収支合計が ${totalCheck} pt となっており、正確な精算ができません。</div>`;
-                return;
-            }
-            if (participants.length === 0) {
-                container.innerHTML = '<div class="settlement-none">精算が必要な金額はありません。</div>';
-                return;
-            }
+            let d = pts.filter(p => p.val < 0).sort((a,b) => a.val - b.val);
+            let c = pts.filter(p => p.val > 0).sort((a,b) => b.val - a.val);
+            let tx = [], di = 0, ci = 0;
 
-            // 2. 債務者（マイナス）と債権者（プラス）に分ける
-            // 絶対値の大きい順にソート（これにより取引回数が最小化されやすくなる）
-            let debtors = participants.filter(p => p.val < 0).sort((a, b) => a.val - b.val); // 昇順（例: -5000, -1000）
-            let creditors = participants.filter(p => p.val > 0).sort((a, b) => b.val - a.val); // 降順（例: +4000, +2000）
-
-            let transactions = [];
-            let dIndex = 0;
-            let cIndex = 0;
-
-            // 3. マッチング処理
-            while (dIndex < debtors.length && cIndex < creditors.length) {
-                let debtor = debtors[dIndex];
-                let creditor = creditors[cIndex];
-
-                // 取引額は、負債の絶対値と債権の小さい方
-                let amount = Math.min(Math.abs(debtor.val), creditor.val);
-
-                transactions.push({
-                    from: debtor.name,
-                    to: creditor.name,
-                    amount: amount
-                });
-
-                // 残高調整
-                debtor.val += amount;
-                creditor.val -= amount;
-
-                // 完済したら次の人へ
-                // 浮動小数点誤差を考慮して 1未満なら完了とみなす
-                if (Math.abs(debtor.val) < 1) dIndex++;
-                if (creditor.val < 1) cIndex++;
+            while (di < d.length && ci < c.length) {
+                let amt = Math.min(Math.abs(d[di].val), c[ci].val);
+                tx.push({from:d[di].name, to:c[ci].name, amount:amt});
+                d[di].val += amt; c[ci].val -= amt;
+                if (Math.abs(d[di].val) < 1) di++;
+                if (c[ci].val < 1) ci++;
             }
 
-            // 4. 表示生成
-            if (transactions.length > 0) {
-                const ul = document.createElement('ul');
-                ul.className = 'settlement-list';
-                transactions.forEach(t => {
-                    const li = document.createElement('li');
-                    li.className = 'settlement-item';
-                    li.innerHTML = `
-                        <div><span class="payer">${t.from}</span> <span class="arrow">➡</span> <span class="receiver">${t.to}</span></div>
-                        <span class="amount">${t.amount.toLocaleString()} pt</span>
-                    `;
-                    ul.appendChild(li);
-                });
-                container.appendChild(ul);
-            } else {
-                 container.innerHTML = '<div class="settlement-none">全員の収支が0です。</div>';
-            }
+            const ul = document.createElement('ul'); ul.className = 'settlement-list';
+            tx.forEach(t => {
+                const li = document.createElement('li'); li.className = 'settlement-item';
+                li.innerHTML = `<div><span class="payer">${t.from}</span> <span class="arrow">➡</span> <span class="receiver">${t.to}</span></div><span class="amount">${t.amount.toLocaleString()} pt</span>`;
+                ul.appendChild(li);
+            });
+            container.appendChild(ul);
         }
 
-        function createChartData(historyData) {
-            const sortedHistory = [...historyData].sort((a, b) => a.id - b.id); 
+        function createChartData(data) {
+            const sorted = [...data].sort((a, b) => a.id - b.id);
             const labels = [];
             const playerPayouts = {};
-            const groupCounters = {}; 
-            const allPlayerNames = [...new Set(historyData.flatMap(h => Object.keys(h.payouts)))];
-            allPlayerNames.forEach(name => { playerPayouts[name] = []; });
-            let currentCumulatedPayout = allPlayerNames.reduce((acc, name) => { acc[name] = 0; return acc; }, {});
+            const groups = {};
+            const names = [...new Set(data.flatMap(h => Object.keys(h.payouts)))];
+            names.forEach(n => playerPayouts[n] = []);
+            let current = names.reduce((a, n) => { a[n] = 0; return a; }, {});
 
-            sortedHistory.forEach((game) => {
-                const groupName = game.group || '-';
-                if (!groupCounters[groupName]) groupCounters[groupName] = 0;
-                groupCounters[groupName]++;
-                labels.push(`${groupName} (${groupCounters[groupName]})`);
-                allPlayerNames.forEach(name => {
-                    const payout = game.payouts[name] ? Math.round(game.payouts[name].total) : 0;
-                    currentCumulatedPayout[name] += payout;
-                    playerPayouts[name].push(currentCumulatedPayout[name]);
+            sorted.forEach(g => {
+                const gn = g.group || '-';
+                if (!groups[gn]) groups[gn] = 0; groups[gn]++;
+                labels.push(`${gn} (${groups[gn]})`);
+                names.forEach(n => {
+                    current[n] += g.payouts[n] ? Math.round(g.payouts[n].total) : 0;
+                    playerPayouts[n].push(current[n]);
                 });
             });
 
-            const colors = generateColors(allPlayerNames.length);
-            const datasets = allPlayerNames.map((name, index) => ({
-                label: name, data: playerPayouts[name],
-                borderColor: colors[index], backgroundColor: colors[index] + '20',
-                borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, fill: false, tension: 0.3 
-            })).filter(dataset => dataset.data.length > 0);
+            names.sort((a, b) => current[b] - current[a]);
 
-            return { labels, datasets, allPlayerNames };
-        }
-        
-        function generateColors(count) {
-            const palette = ['#1a73e8', '#00b894', '#d63031', '#fdcb6e', '#6c5ce7', '#e17055', '#0984e3', '#00cec9', '#636e72', '#2d3436'];
-            const colors = [];
-            for (let i = 0; i < count; i++) colors.push(palette[i % palette.length]);
-            return colors;
+            const colors = ['#4f46e5', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#636e72', '#2d3436'];
+            const datasets = names.map((n, i) => ({
+                label: n, data: playerPayouts[n], borderColor: colors[i%colors.length], backgroundColor: colors[i%colors.length]+'20',
+                borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, fill: false, tension: 0.3
+            })).filter(d => d.data.length > 0);
+            return { labels, datasets, allPlayerNames: names };
         }
 
         function drawChart(labels, datasets) {
             const ctx = document.getElementById('payoutChart').getContext('2d');
             if (payoutChart) payoutChart.destroy();
-            let allValues = datasets.flatMap(d => d.data);
-            if (allValues.length === 0) { payoutChart = new Chart(ctx, { type: 'line', data: {}, options: {} }); return; } 
+            let vals = datasets.flatMap(d => d.data);
+            if (vals.length === 0) { payoutChart = new Chart(ctx, { type:'line', data:{}, options:{} }); return; }
 
-            let dataMin = Math.min(...allValues); let dataMax = Math.max(...allValues);
-            let range = dataMax - dataMin; let padding = range === 0 ? 1000 : range * 0.1; 
-            let yAxisMin = dataMin - padding; let yAxisMax = dataMax + padding;
-            let finalMin = Math.floor(yAxisMin / 100) * 100; let finalMax = Math.ceil(yAxisMax / 100) * 100;
-            if (dataMin >= 0) finalMin = 0; if (dataMax <= 0) finalMax = 0;
+            let min = Math.min(...vals), max = Math.max(...vals), pad = (max-min)*0.1 || 1000;
+            let yMin = Math.floor((min-pad)/100)*100, yMax = Math.ceil((max+pad)/100)*100;
+            if (min >= 0) yMin = 0; if (max <= 0) yMax = 0;
 
             payoutChart = new Chart(ctx, {
                 type: 'line', data: { labels, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, font: { family: "'Segoe UI', sans-serif", size: 12 } } },
+                        legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, font: {family: "'Noto Sans JP', sans-serif"} } },
                         tooltip: {
-                            mode: 'index', intersect: false, backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            titleColor: '#333', bodyColor: '#333', borderColor: '#ddd', borderWidth: 1,
-                            titleFont: { size: 14, weight: 'bold' }, bodyFont: { size: 13 }, padding: 12,
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || ''; if (label) label += ': ';
-                                    if (context.parsed.y !== null) label += `${context.parsed.y > 0 ? '+' : ''}${context.parsed.y.toLocaleString()} pt`;
-                                    return label;
-                                }
-                            }
+                            mode: 'index', intersect: false, backgroundColor: 'rgba(255,255,255,0.95)',
+                            titleColor: '#1f2937', bodyColor: '#1f2937', borderColor: '#e5e7eb', borderWidth: 1,
+                            titleFont: {family: "'Noto Sans JP', sans-serif", weight: 'bold'},
+                            bodyFont: {family: "'Roboto Mono', monospace"},
+                            itemSort: (a, b) => b.parsed.y - a.parsed.y,
+                            callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y>0?'+':''}${c.parsed.y.toLocaleString()} pt` }
                         }
                     },
                     interaction: { mode: 'nearest', axis: 'x', intersect: false },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                        y: { min: finalMin, max: finalMax, grid: { color: '#f0f0f0', borderDash: [4, 4] }, ticks: { font: { size: 11 } } }
+                    scales: { 
+                        y: { min: yMin, max: yMax, grid: { borderDash: [4,4], color: '#f3f4f6' }, ticks: { font: {family: "'Roboto Mono', monospace"} } }, 
+                        x: { grid: { display: false }, ticks: { font: {family: "'Noto Sans JP', sans-serif"} } } 
                     }
                 }
             });
