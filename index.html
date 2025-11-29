@@ -14,6 +14,7 @@
             --secondary: #10b981;
             --danger: #ef4444;
             --warning: #f59e0b;
+            --info: #0ea5e9;
             --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             --card-bg: rgba(255, 255, 255, 0.95);
             --text-main: #1f2937;
@@ -67,6 +68,9 @@
         #registerChipsBtn { background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%); color: white; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); margin-top: 25px; }
         #registerChipsBtn:hover { box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6); }
 
+        .btn-neutral { background: #9ca3af !important; color: white; box-shadow: none !important; margin-top: 25px; }
+        .btn-neutral:hover { background: #6b7280 !important; }
+
         .registration-list { display: flex; flex-wrap: wrap; gap: 8px; }
         .player-tag, .group-tag { display: inline-flex; align-items: center; padding: 6px 12px; background: #e0e7ff; color: var(--primary); border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
         .group-tag { background: #fef3c7; color: #b45309; }
@@ -84,8 +88,8 @@
         .participant-item.selected { background: #eef2ff; border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2); position: relative; }
         .participant-item.selected::after { content: '✔'; position: absolute; top: -6px; right: -6px; background: var(--primary); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; }
 
-        #result-input-grid, #chip-input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        @media (max-width: 600px) { #result-input-grid, #chip-input-grid { grid-template-columns: 1fr; } }
+        #result-input-grid, #chip-input-grid, #carryover-input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        @media (max-width: 600px) { #result-input-grid, #chip-input-grid, #carryover-input-grid { grid-template-columns: 1fr; } }
 
         .result-player-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; position: relative; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .result-player-card h3 { margin: 0 0 15px 0; font-size: 1.1rem; color: var(--primary); display: flex; align-items: center; }
@@ -94,6 +98,10 @@
         .chip-player-card { border-left: 5px solid var(--warning); }
         .chip-player-card h3 { color: #d97706; }
         .chip-player-card h3::before { background: #d97706; }
+
+        .carryover-player-card { border: 1px solid #e5e7eb; background: #fafafa; }
+        .carryover-player-card h3 { color: #6b7280; font-size: 1rem; }
+        .carryover-player-card h3::before { background: #9ca3af; }
 
         .calculated-payout { 
             margin-top: 15px; padding-top: 15px; border-top: 2px dashed #e5e7eb; text-align: right; 
@@ -114,6 +122,11 @@
         .spinner { width: 50px; height: 50px; border: 4px solid #e5e7eb; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .flex-row { display: flex; gap: 10px; }
+
+        summary { cursor: pointer; font-weight: bold; color: var(--text-sub); outline: none; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '+'; font-size: 1.5rem; color: #9ca3af; }
+        details[open] summary::after { content: '-'; }
     </style>
 </head>
 <body>
@@ -151,7 +164,7 @@
                 <p id="groupRegMessage" class="message"></p>
             </div>
         </div>
-
+        
         <div class="card">
             <h2>📝 対局設定</h2>
             <div class="form-group">
@@ -199,6 +212,20 @@
             <div id="chip-input-grid"></div>
             <button id="registerChipsBtn" class="action-btn" onclick="registerChips()">チップ収支を登録</button>
         </div>
+
+        <details class="card" style="background: #f9fafb; border: 1px solid #e5e7eb; box-shadow: none;">
+            <summary><h2 style="margin:0; border:none; padding:0; display:inline-block; font-size:1rem; color:#6b7280;">⏮ 過去の収支引き継ぎ (タップして表示)</h2></summary>
+            <div style="margin-top: 20px;">
+                <p style="color:var(--text-sub); font-size:0.85rem; margin-bottom:15px; padding:10px; border-radius:8px; border:1px solid #e5e7eb;">
+                    💡 アプリ導入前の累計スコアを登録できます。<br>
+                    登録済みの全プレイヤーが表示されます。引き継ぐ値がある人のみ入力してください。<br>
+                    ※合計は0になるようにしてください。
+                </p>
+                <div id="carryover-message" class="message"></div>
+                <div id="carryover-input-grid"></div>
+                <button id="registerCarryoverBtn" class="action-btn btn-neutral" onclick="registerCarryover()">引き継ぎデータを登録</button>
+            </div>
+        </details>
     </div>
 
     <script>
@@ -259,6 +286,7 @@
                 updateGroupDropdown();
                 restoreSettings();
                 initializeInputs();
+                updateCarryoverInputForm(); 
             } catch (error) {
                 alert("データの読み込みに失敗しました。\n" + error.message);
             } finally {
@@ -280,7 +308,6 @@
 
         function showLoading(isLoading) { document.getElementById('loadingOverlay').style.display = isLoading ? 'flex' : 'none'; }
 
-        // --- プレイヤー・グループ管理 (変更なし) ---
         async function registerPlayer() {
             const input = document.getElementById('newPlayerName');
             const name = input.value.trim();
@@ -291,7 +318,7 @@
             registeredPlayers.push(name);
             await saveData('mahjong_registered_players', registeredPlayers);
             input.value = ""; msg.textContent = "登録しました"; msg.className = "message success";
-            updatePlayerRegistrationDisplay(); updateParticipantSelection();
+            updatePlayerRegistrationDisplay(); updateParticipantSelection(); updateCarryoverInputForm();
             setTimeout(() => msg.style.display='none', 3000);
         }
 
@@ -311,7 +338,7 @@
             try {
                 await saveData('mahjong_registered_players', registeredPlayers);
                 if (historyChanged) await saveData('mahjong_variable_score_history_int', historyData);
-                updatePlayerRegistrationDisplay(); updateParticipantSelection(); alert("変更しました。");
+                updatePlayerRegistrationDisplay(); updateParticipantSelection(); updateCarryoverInputForm(); alert("変更しました。");
             } catch (e) { alert("保存に失敗しました: " + e.message); } finally { showLoading(false); }
         }
 
@@ -320,7 +347,7 @@
             if (confirm("削除しますか？")) {
                 registeredPlayers = registeredPlayers.filter(p => p !== name);
                 await saveData('mahjong_registered_players', registeredPlayers);
-                updatePlayerRegistrationDisplay(); updateParticipantSelection();
+                updatePlayerRegistrationDisplay(); updateParticipantSelection(); updateCarryoverInputForm();
             }
         }
 
@@ -384,13 +411,19 @@
         function updateGroupDropdown() {
             const select = document.getElementById('gameGroup'); const currentVal = select.value;
             select.innerHTML = '<option value="">グループを選択してください</option>';
-            [...registeredGroups].reverse().forEach(group => {
+            
+            // ★過去分引き継ぎを末尾に移動
+            let groups = [...registeredGroups];
+            const carryoverName = '過去分引き継ぎ';
+            const sorted = groups.filter(g => g !== carryoverName).reverse();
+            if (groups.includes(carryoverName)) sorted.push(carryoverName);
+
+            sorted.forEach(group => {
                 const option = document.createElement('option'); option.value = group; option.textContent = group; select.appendChild(option);
             });
             if (currentVal && registeredGroups.includes(currentVal)) select.value = currentVal;
         }
 
-        // --- UI生成 (対局＆チップ) ---
         function initializeInputs() { 
             updateParticipantSelection(); 
             updateUmaInputs(); 
@@ -425,7 +458,7 @@
                 container.appendChild(item);
             });
             updateResultInputForm();
-            updateChipInputForm(); // チップ入力欄も更新
+            updateChipInputForm();
         }
 
         function toggleParticipant() { 
@@ -436,7 +469,6 @@
         }
         function getSelectedParticipants() { return Array.from(document.querySelectorAll('.participant-item.selected')).map(el => el.getAttribute('data-name')); }
 
-        // --- 対局結果フォーム ---
         function updateResultInputForm() {
             const selected = getSelectedParticipants();
             const grid = document.getElementById('result-input-grid');
@@ -452,8 +484,6 @@
 
             selected.forEach(player => {
                 const card = document.createElement('div'); card.className = 'result-player-card';
-                // チップ入力を削除
-                // ★修正: 順位入力欄のreadonlyを削除し、編集可能なスタイルに変更
                 card.innerHTML = `
                     <h3>${player}</h3>
                     <div class="form-group" style="margin-bottom:10px;">
@@ -470,7 +500,6 @@
             });
         }
 
-        // --- チップ一括入力フォーム ---
         function updateChipInputForm() {
             const selected = getSelectedParticipants();
             const grid = document.getElementById('chip-input-grid');
@@ -497,19 +526,34 @@
             });
         }
 
+        function updateCarryoverInputForm() {
+            const grid = document.getElementById('carryover-input-grid');
+            grid.innerHTML = '';
+            
+            registeredPlayers.forEach(player => {
+                const card = document.createElement('div'); card.className = 'result-player-card carryover-player-card';
+                card.innerHTML = `
+                    <h3>${player}</h3>
+                    <div class="form-group">
+                        <label>累計スコア (pt)</label>
+                        <input type="number" id="${player}-carryover" placeholder="0" style="font-size:1.2rem; font-weight:bold; color:#374151; background:#fff; border:1px solid #d1d5db;">
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
         function autoCalculateRanks() {
             const participants = getSelectedParticipants();
             let scores = participants.map(name => ({ name: name, score: document.getElementById(`${name}-score`).value === "" ? -Infinity : parseFloat(document.getElementById(`${name}-score`).value) }));
             scores.sort((a, b) => b.score - a.score);
             scores.forEach((item, index) => { 
-                // 手動入力のための配慮として、scoreが入力されている場合のみ自動入力
                 if(item.score !== -Infinity) {
                      document.getElementById(`${item.name}-rank`).value = index + 1;
                 }
             });
         }
 
-        // --- 対局記録実行 (素点のみ) ---
         async function addGame() {
             saveSettings();
             const msg = document.getElementById('message');
@@ -577,7 +621,6 @@
             setTimeout(() => { window.location.href = 'history.html'; }, 1000);
         }
 
-        // --- チップ一括登録実行 ---
         async function registerChips() {
             const msg = document.getElementById('chip-message');
             const participants = getSelectedParticipants();
@@ -626,6 +669,59 @@
 
             await saveData('mahjong_variable_score_history_int', historyData);
             msg.textContent = "チップ収支を登録しました。履歴ページへ移動します..."; msg.className = "message success"; msg.style.display = 'block';
+            setTimeout(() => { window.location.href = 'history.html'; }, 1000);
+        }
+
+        async function registerCarryover() {
+            const msg = document.getElementById('carryover-message');
+            
+            let carryoverData = {};
+            let totalPt = 0;
+            let count = 0;
+
+            for (const name of registeredPlayers) {
+                const rawVal = document.getElementById(`${name}-carryover`).value;
+                if (rawVal !== "") {
+                    const pt = parseInt(rawVal);
+                    if (!isNaN(pt) && pt !== 0) {
+                        carryoverData[name] = pt;
+                        totalPt += pt;
+                        count++;
+                    }
+                }
+            }
+
+            if (count === 0) {
+                msg.textContent = "値を入力してください"; 
+                msg.className = "message error"; msg.style.display = 'block'; return;
+            }
+
+            if (totalPt !== 0) {
+                msg.textContent = `合計が0になりません (現在: ${totalPt} pt)`; 
+                msg.className = "message error"; msg.style.display = 'block'; return;
+            }
+
+            if (!confirm("引き継ぎデータを登録しますか？")) return;
+
+            let totalPayouts = {};
+            for (const name in carryoverData) {
+                const pt = carryoverData[name];
+                totalPayouts[name] = { scorePt: 0, bonusPt: 0, chipCount: 0, chipPt: 0, total: pt, rank: 0 };
+            }
+
+            historyData.push({
+                id: 0, // ★IDを0にして最古のデータとして扱う
+                date: "1900/01/01 00:00", 
+                group: '過去分引き継ぎ', 
+                playerCount: count,
+                payouts: totalPayouts,
+                ranks: {}, 
+                chipValue: 0,
+                gameType: 'carryover'
+            });
+
+            await saveData('mahjong_variable_score_history_int', historyData);
+            msg.textContent = "引き継ぎデータを登録しました。履歴ページへ移動します..."; msg.className = "message success"; msg.style.display = 'block';
             setTimeout(() => { window.location.href = 'history.html'; }, 1000);
         }
     </script>
