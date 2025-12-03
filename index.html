@@ -38,6 +38,8 @@
 
         header { text-align: center; margin-bottom: 30px; }
         h1 { color: var(--primary); font-size: 1.8rem; margin: 0 0 15px 0; text-shadow: 2px 2px 4px rgba(255,255,255,0.5); }
+        
+        /* ナビゲーションリンクのスタイル */
         .nav-link { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; background: #fff; color: var(--text-main); text-decoration: none; border-radius: 50px; font-weight: 700; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: all 0.3s ease; border: 1px solid #e5e7eb; }
         .nav-link:hover { transform: translateY(-2px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); color: var(--primary); }
 
@@ -138,7 +140,14 @@
     <div class="container">
         <header>
             <h1>🀄️ 公大中麻雀倶楽部</h1>
-            <a href="history.html" class="nav-link"><span>📈 履歴・収支・グラフを見る</span></a>
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <a href="history.html" class="nav-link">
+                    <span>📈 履歴・収支・グラフを見る</span>
+                </a>
+                <a href="https://youtu.be/Gn2dUxFHiRY" target="_blank" class="nav-link" style="color: #c4302b; border-color: #ffcccc;">
+                    <span>📺 使い方動画 (YouTube)</span>
+                </a>
+            </div>
         </header>
 
         <div class="card">
