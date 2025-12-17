@@ -222,6 +222,34 @@
         </div>
 
         <div class="card">
+            <h2>🤖 詳細統計分析 (Python連携)</h2>
+            <p style="color:var(--text-sub); font-size:0.9rem;">
+                ※読み込みに少し時間がかかる場合があります。<br>
+                スマホで見づらい場合は <a href="#" id="streamlitLink" target="_blank" style="color:var(--primary); font-weight:bold;">こちらをタップ</a> して全画面で開いてください。
+            </p>
+            
+            <div style="position: relative; width: 100%; padding-top: 150%; /* 高さを確保 */">
+                <iframe 
+                    id="streamlitFrame"
+                    src="https://YOUR-STREAMLIT-APP-URL.streamlit.app?embed=true" 
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 12px;"
+                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen>
+                </iframe>
+            </div>
+            
+            <script>
+                // URL設定用スクリプト (srcを直接書き換えた場合は不要ですが便利のため)
+                // ★ここにStreamlitのURLを入力すれば、iframeとリンクの両方に反映されます
+                const STREAMLIT_URL = "https://YOUR-STREAMLIT-APP-URL.streamlit.app"; 
+                
+                if (STREAMLIT_URL && STREAMLIT_URL !== "https://YOUR-STREAMLIT-APP-URL.streamlit.app") {
+                    document.getElementById('streamlitFrame').src = STREAMLIT_URL + "?embed=true";
+                    document.getElementById('streamlitLink').href = STREAMLIT_URL;
+                }
+            </script>
+        </div>
+        <div class="card">
             <h2>👑 グループ別累計収支</h2>
             <div class="table-wrapper">
                 <table id="resultsTable">
@@ -280,7 +308,6 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pa2Nqa3F2ZGprcWtjZ3N1ZmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NTU5ODIsImV4cCI6MjA3OTQzMTk4Mn0.O4gR7N9279zAsgunCDZre4FJAM2gHT4uwUlFkjEhm-k";
         // ============================================================
 
-        // ★修正点: 変数名を 'supabase' から 'supabaseClient' に変更
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let historyData = []; 
@@ -289,14 +316,13 @@
         let memos = [];
         let payoutChart = null; 
         let currentEditingId = null;
-        let availablePlayersList = []; // 全プレイヤーリストを保持
+        let availablePlayersList = []; 
 
         document.addEventListener('DOMContentLoaded', () => { loadAllData(); });
 
         async function loadAllData() {
             showLoading(true);
             try {
-                // ★修正点: supabaseClient を使用
                 const { data, error } = await supabaseClient.from('app_data').select('*');
                 if (error) throw error;
                 if (data) {
@@ -321,7 +347,6 @@
         async function saveData(key, value) {
             showLoading(true);
             try {
-                // ★修正点: supabaseClient を使用
                 const { error } = await supabaseClient.from('app_data').upsert({ key: key, value: value }, { onConflict: 'key' });
                 if (error) throw error;
             } catch (error) {
@@ -422,8 +447,6 @@
         function updateDisplay() {
             const group = document.getElementById('groupFilter').value;
             const selectedPlayers = getSelectedPlayers();
-            
-            // ★追加: グラフのモードを取得
             const axisMode = document.getElementById('chartAxisSelect') ? document.getElementById('chartAxisSelect').value : 'game';
 
             const isAllPlayersSelected = selectedPlayers.length === availablePlayersList.length;
@@ -435,7 +458,6 @@
                 return groupMatch && playerMatch;
             }).sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
 
-            // ★変更: axisModeを引数に追加
             const { labels, datasets, allPlayerNames } = createChartData(filtered, selectedPlayers, axisMode);
             drawChart(labels, datasets);
 
@@ -739,77 +761,48 @@
             container.appendChild(ul);
         }
 
-        // --- Chart & Data Logic (Modified for Multiple Players) ---
+        // --- Chart & Data Logic ---
         function createChartData(data, selectedPlayers, axisMode) {
-            // 日付順にソート
             const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
             const labels = [];
             const playerPayouts = {};
             const names = [...new Set(data.flatMap(h => Object.keys(h.payouts)))];
             
-            // データ格納用配列を初期化
             names.forEach(n => playerPayouts[n] = []);
-            
-            // 現在の収支合計を保持する変数
             let current = names.reduce((a, n) => { a[n] = 0; return a; }, {});
 
-            // ★変更: axisModeによる分岐処理
             if (axisMode === 'group') {
-                // --- グループごと（集約）モード ---
                 let currentGroupCount = 0;
-
                 sorted.forEach((g, index) => {
                     const currentGroupName = g.group || '-';
-                    
-                    // 内部計算用: 収支を加算
                     names.forEach(n => {
                         const payout = g.payouts[n] ? Math.round(g.payouts[n].total) : 0;
                         current[n] += payout;
                     });
-                    
                     if (g.gameType !== 'chips') currentGroupCount++;
-
-                    // 次のデータを見る
                     const nextGame = sorted[index + 1];
                     const nextGroupName = nextGame ? (nextGame.group || '-') : null;
-
-                    // 「次のデータがない（最後）」または「次のデータのグループ名が違う」場合、ここでプロットする
                     if (currentGroupName !== nextGroupName) {
-                        labels.push(currentGroupName); // ★修正：回数表示 (n) を削除
-                        
-                        // 全プレイヤーの現在の合計値を配列にプッシュ
-                        names.forEach(n => {
-                            playerPayouts[n].push(current[n]);
-                        });
-                        
-                        // カウントリセット (次のグループのために)
+                        labels.push(currentGroupName);
+                        names.forEach(n => { playerPayouts[n].push(current[n]); });
                         currentGroupCount = 0;
                     }
                 });
-
             } else {
-                // --- 対局ごと（詳細）モード（従来のロジック）---
                 const groups = {};
                 sorted.forEach(g => {
                     const gn = g.group || '-';
                     if (!groups[gn]) groups[gn] = 0; 
                     if (g.gameType !== 'chips') groups[gn]++; 
-                    
-                    // 収支加算
                     names.forEach(n => {
                         const payout = g.payouts[n] ? Math.round(g.payouts[n].total) : 0;
                         current[n] += payout;
                     });
-
-                    // 即時プロット
                     labels.push(g.gameType === 'chips' ? `${gn} (Chip)` : `${gn} (${groups[gn]})`);
-                    names.forEach(n => {
-                        playerPayouts[n].push(current[n]);
-                    });
+                    names.forEach(n => { playerPayouts[n].push(current[n]); });
                 });
             }
 
-            // 表示するプレイヤーをフィルタリング・ソート
             let displayNames = names.filter(n => selectedPlayers.includes(n));
             displayNames.sort((a, b) => current[b] - current[a]);
 
@@ -822,14 +815,11 @@
                 borderColor: colors[allRegistered.indexOf(n) % colors.length], 
                 backgroundColor: colors[allRegistered.indexOf(n) % colors.length]+'20',
                 borderWidth: 2.5, 
-                
-                // ★前回の要望を維持: 小さいマーカーと曲線
                 pointRadius: 2.5,
                 pointHoverRadius: 5,
                 pointHitRadius: 10,
                 fill: false, 
                 tension: 0.3 
-                
             })).filter(d => d.data && d.data.length > 0);
 
             return { labels, datasets, allPlayerNames: names };

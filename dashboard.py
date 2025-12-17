@@ -57,7 +57,7 @@ def load_data():
 df = load_data()
 
 # --- 3. ダッシュボード表示 ---
-st.title("🀄 公大中麻雀倶楽部 - 高度統計分析")
+st.title("🀄 公大中麻雀倶楽部 - 対戦分析")
 
 if df.empty:
     st.warning("データがありません。まずはWebアプリから対局結果を入力してください。")
