@@ -184,7 +184,15 @@
     <div class="container">
         <header>
             <h1>🀄️ 公大中麻雀倶楽部</h1>
-            <a href="index.html" class="nav-link"><span>📝 データ入力ページへ戻る</span></a>
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <a href="index.html" class="nav-link">
+                    <span>📝 データ入力ページへ戻る</span>
+                </a>
+                
+                <a href="https://mahjong-app-5fwh4uljkbcf48aq5sqmun.streamlit.app/" target="_blank" class="nav-link" style="color: #e11d48; border-color: #fecdd3;">
+                    <span>🤖 詳細分析 (Pythonアプリ)</span>
+                </a>
+            </div>
         </header>
 
         <div class="card">
@@ -221,34 +229,6 @@
             <div id="chartContainer"><canvas id="payoutChart"></canvas></div>
         </div>
 
-        <div class="card">
-            <h2>🤖 詳細統計分析 (Python連携)</h2>
-            <p style="color:var(--text-sub); font-size:0.9rem;">
-                ※読み込みに少し時間がかかる場合があります。<br>
-                スマホで見づらい場合は <a href="#" id="streamlitLink" target="_blank" style="color:var(--primary); font-weight:bold;">こちらをタップ</a> して全画面で開いてください。
-            </p>
-            
-            <div style="position: relative; width: 100%; padding-top: 150%; /* 高さを確保 */">
-                <iframe 
-                    id="streamlitFrame"
-                    src="https://YOUR-STREAMLIT-APP-URL.streamlit.app?embed=true" 
-                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 12px;"
-                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                    allowfullscreen>
-                </iframe>
-            </div>
-            
-            <script>
-                // URL設定用スクリプト (srcを直接書き換えた場合は不要ですが便利のため)
-                // ★ここにStreamlitのURLを入力すれば、iframeとリンクの両方に反映されます
-                const STREAMLIT_URL = "https://YOUR-STREAMLIT-APP-URL.streamlit.app"; 
-                
-                if (STREAMLIT_URL && STREAMLIT_URL !== "https://YOUR-STREAMLIT-APP-URL.streamlit.app") {
-                    document.getElementById('streamlitFrame').src = STREAMLIT_URL + "?embed=true";
-                    document.getElementById('streamlitLink').href = STREAMLIT_URL;
-                }
-            </script>
-        </div>
         <div class="card">
             <h2>👑 グループ別累計収支</h2>
             <div class="table-wrapper">
