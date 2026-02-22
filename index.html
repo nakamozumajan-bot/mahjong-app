@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🀄️ 公大中麻雀倶楽部 - データ入力</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* スタイル定義 */
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #0ea5e9;
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border-radius: 16px;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            --input-bg: #f3f4f6;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: 800px; margin: 0 auto; padding-bottom: 40px; }
+
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { color: var(--primary); font-size: 1.8rem; margin: 0 0 15px 0; text-shadow: 2px 2px 4px rgba(255,255,255,0.5); }
+        
+        /* ナビゲーションリンクスタイル */
+        .nav-link { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; background: #fff; color: var(--text-main); text-decoration: none; border-radius: 50px; font-weight: 700; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: all 0.3s ease; border: 1px solid #e5e7eb; }
+        .nav-link:hover { transform: translateY(-2px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); color: var(--primary); }
+
+        .card { background: var(--card-bg); backdrop-filter: blur(10px); border-radius: var(--border-radius); padding: 25px; margin-bottom: 25px; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.5); }
+        h2 { font-size: 1.2rem; color: var(--text-main); margin-top: 0; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; display: flex; align-items: center; gap: 8px; }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-sub); font-size: 0.9rem; }
+        
+        input[type="text"], input[type="number"], select { 
+            width: 100%; padding: 12px 15px; box-sizing: border-box; border: 2px solid transparent; 
+            background-color: var(--input-bg); border-radius: 10px; 
+            font-size: 1rem; color: var(--text-main); transition: all 0.2s; 
+            font-family: 'Noto Sans JP', sans-serif; 
+            font-variant-numeric: tabular-nums; 
+            font-weight: 500;
+        }
+        input:focus, select:focus { outline: none; background-color: #fff; border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+
+        .action-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+        .action-btn:active { transform: scale(0.98); }
+        .btn-register { background: var(--secondary); color: white; width: auto; padding: 0 20px; white-space: nowrap;}
+        .btn-group-reg { background: #f59e0b; color: white; width: auto; padding: 0 20px; white-space: nowrap;}
+        
+        #addGameBtn { background: linear-gradient(135deg, var(--primary) 0%, #4338ca 100%); color: white; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); margin-top: 25px; }
+        #addGameBtn:hover { box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6); }
+
+        #registerChipsBtn { background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%); color: white; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); margin-top: 25px; }
+        #registerChipsBtn:hover { box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6); }
+
+        .btn-neutral { background: #9ca3af !important; color: white; box-shadow: none !important; margin-top: 25px; }
+        .btn-neutral:hover { background: #6b7280 !important; }
+
+        .registration-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .player-tag, .group-tag { display: inline-flex; align-items: center; padding: 6px 12px; background: #e0e7ff; color: var(--primary); border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .group-tag { background: #fef3c7; color: #b45309; }
+        .btn-edit, .btn-delete { background: none; border: none; cursor: pointer; margin-left: 6px; padding: 2px; border-radius: 50%; font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .btn-edit:hover, .btn-delete:hover { background: rgba(0,0,0,0.1); }
+
+        #umaInputsContainer { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 10px; padding: 15px; background: #f9fafb; border-radius: 12px; }
+        .uma-input-item { text-align: center; }
+        .uma-input-item label { font-size: 0.75rem; margin-bottom: 4px; }
+        .uma-input-item input { text-align: center; padding: 8px; font-size: 0.9rem; }
+
+        #participant-selection { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 10px; }
+        .participant-item { padding: 12px 8px; background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; text-align: center; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; color: var(--text-sub); }
+        .participant-item:hover { border-color: var(--primary-light); }
+        .participant-item.selected { background: #eef2ff; border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2); position: relative; }
+        .participant-item.selected::after { content: '✔'; position: absolute; top: -6px; right: -6px; background: var(--primary); color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+
+        #result-input-grid, #chip-input-grid, #carryover-input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        @media (max-width: 600px) { #result-input-grid, #chip-input-grid, #carryover-input-grid { grid-template-columns: 1fr; } }
+
+        .result-player-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; position: relative; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .result-player-card h3 { margin: 0 0 15px 0; font-size: 1.1rem; color: var(--primary); display: flex; align-items: center; }
+        .result-player-card h3::before { content: ''; display: inline-block; width: 4px; height: 1.1rem; background: var(--primary); margin-right: 8px; border-radius: 2px; }
+        
+        .chip-player-card { border-left: 5px solid var(--warning); }
+        .chip-player-card h3 { color: #d97706; }
+        .chip-player-card h3::before { background: #d97706; }
+
+        .carryover-player-card { border: 1px solid #e5e7eb; background: #fafafa; }
+        .carryover-player-card h3 { color: #6b7280; font-size: 1rem; }
+        .carryover-player-card h3::before { background: #9ca3af; }
+
+        .calculated-payout { 
+            margin-top: 15px; padding-top: 15px; border-top: 2px dashed #e5e7eb; text-align: right; 
+            font-size: 1.4rem; font-weight: 800; 
+            font-family: 'Noto Sans JP', sans-serif; 
+            font-variant-numeric: tabular-nums;
+        }
+        .positive-payout { color: var(--secondary); text-shadow: 0 0 20px rgba(16, 185, 129, 0.2); }
+        .negative-payout { color: var(--danger); }
+        .zero-payout { color: #9ca3af; }
+
+        .message { margin-top: 20px; padding: 15px; border-radius: 10px; font-weight: bold; text-align: center; animation: fadeIn 0.3s ease; display: none; }
+        .message.error { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .message.success { background: #d1fae5; color: #047857; border: 1px solid #6ee7b7; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(5px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e5e7eb; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .flex-row { display: flex; gap: 10px; }
+
+        summary { cursor: pointer; font-weight: bold; color: var(--text-sub); outline: none; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '+'; font-size: 1.5rem; color: #9ca3af; }
+        details[open] summary::after { content: '-'; }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div style="font-weight: bold; color: var(--primary);">データを読み込み中...</div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>🀄️ 公大中麻雀倶楽部</h1>
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <a href="history.html" class="nav-link">
+                    <span>📈 履歴・収支・グラフを見る</span>
+                </a>
+                <a href="https://youtu.be/Gn2dUxFHiRY" target="_blank" class="nav-link" style="color: #c4302b; border-color: #ffcccc;">
+                    <span>📺 使い方動画 (YouTube)</span>
+                </a>
+            </div>
+        </header>
+
+        <div class="card">
+            <h2>👤 プレイヤー登録</h2>
+            <div class="form-group">
+                <div class="flex-row">
+                    <input type="text" id="newPlayerName" placeholder="新しいプレイヤー名を入力">
+                    <button onclick="registerPlayer()" class="action-btn btn-register">登録</button>
+                </div>
+                <div id="registeredPlayersList" class="registration-list" style="margin-top: 15px;"></div>
+                <p id="regMessage" class="message"></p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🗓️ 日付(グループ名)登録</h2>
+            <div class="form-group">
+                <div class="flex-row">
+                    <input type="text" id="newGroupName" placeholder="例: 2023/10/25 定例会">
+                    <button onclick="registerGroup()" class="action-btn btn-group-reg">登録</button>
+                </div>
+                <div id="registeredGroupsList" class="registration-list" style="margin-top: 15px;"></div>
+                <p id="groupRegMessage" class="message"></p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📝 対局設定</h2>
+            <div class="form-group">
+                <label for="gameGroup">対局日付 / グループ</label>
+                <select id="gameGroup"><option value="">グループを選択してください</option></select>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label for="playerCount">参加人数</label>
+                    <select id="playerCount" onchange="initializeInputs()">
+                        <option value="3">3人</option><option value="4" selected>4人</option><option value="5">5人</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="chipValue">チップ単価 (1枚)</label>
+                    <input type="number" id="chipValue" value="300" placeholder="pt">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>順位点設定</label>
+                <div id="umaInputsContainer"></div>
+            </div>
+
+            <div class="form-group">
+                <label>対局参加者 (タップして選択)</label>
+                <div id="participant-selection"></div>
+            </div>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--primary);">
+            <h2>🔢 対局結果入力</h2>
+            <div id="message" class="message"></div>
+            <div id="result-input-grid"></div>
+            <button id="addGameBtn" class="action-btn" onclick="addGame()">対局結果を記録</button>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--warning);">
+            <h2>🟡 チップ登録</h2>
+            <p style="color:var(--text-sub); font-size:0.9rem; margin-bottom:15px;">
+                ※一日(グループ)の終わりに、ここでまとめてチップの収支(枚数)を入力してください。
+            </p>
+            <div id="chip-message" class="message"></div>
+            <div id="chip-input-grid"></div>
+            <button id="registerChipsBtn" class="action-btn" onclick="registerChips()">チップ収支を登録</button>
+        </div>
+
+        <details class="card" style="background: #f9fafb; border: 1px solid #e5e7eb; box-shadow: none;">
+            <summary><h2 style="margin:0; border:none; padding:0; display:inline-block; font-size:1rem; color:#6b7280;">⏮ 過去の収支引き継ぎ (タップして表示)</h2></summary>
+            <div style="margin-top: 20px;">
+                <p style="color:var(--text-sub); font-size:0.85rem; margin-bottom:15px; padding:10px; border-radius:8px; border:1px solid #e5e7eb;">
+                    💡 アプリ導入前の累計スコアを登録できます。<br>
+                    登録済みの全プレイヤーが表示されます。引き継ぐ値がある人のみ入力してください。<br>
+                    ※合計は0になるようにしてください。
+                </p>
+                <div id="carryover-message" class="message"></div>
+                <div id="carryover-input-grid"></div>
+                <button id="registerCarryoverBtn" class="action-btn btn-neutral" onclick="registerCarryover()">引き継ぎデータを登録</button>
+            </div>
+        </details>
+    </div>
+    <script>
+        // ============================================================
+        // ★★★ ここにSupabaseのURLとAPIキーを貼り付けてください ★★★
+        // ============================================================
+        const SUPABASE_URL = "https://mikcjkqvdjkqkcgsufkh.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pa2Nqa3F2ZGprcWtjZ3N1ZmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NTU5ODIsImV4cCI6MjA3OTQzMTk4Mn0.O4gR7N9279zAsgunCDZre4FJAM2gHT4uwUlFkjEhm-k";
+        // ============================================================
+
+        // 【修正1】変数名を 'supabase' から 'supabaseClient' に変更して衝突を回避
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let historyData = []; 
+        let registeredPlayers = [];
+        let registeredGroups = [];
+        const LS_KEYS = { GROUP: 'mj_pref_group', COUNT: 'mj_pref_count', CHIP: 'mj_pref_chip', PARTICIPANTS: 'mj_pref_participants' };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+            document.getElementById('gameGroup').addEventListener('change', saveSettings);
+            document.getElementById('playerCount').addEventListener('change', () => { saveSettings(); initializeInputs(); });
+            document.getElementById('chipValue').addEventListener('change', saveSettings);
+        });
+
+        function saveSettings() {
+            localStorage.setItem(LS_KEYS.GROUP, document.getElementById('gameGroup').value);
+            localStorage.setItem(LS_KEYS.COUNT, document.getElementById('playerCount').value);
+            localStorage.setItem(LS_KEYS.CHIP, document.getElementById('chipValue').value);
+            localStorage.setItem(LS_KEYS.PARTICIPANTS, JSON.stringify(getSelectedParticipants()));
+        }
+
+        function restoreSettings() {
+            const savedCount = localStorage.getItem(LS_KEYS.COUNT);
+            if (savedCount) document.getElementById('playerCount').value = savedCount;
+            const savedChip = localStorage.getItem(LS_KEYS.CHIP);
+            if (savedChip) document.getElementById('chipValue').value = savedChip;
+            const savedGroup = localStorage.getItem(LS_KEYS.GROUP);
+            const groupSelect = document.getElementById('gameGroup');
+            if (savedGroup && registeredGroups.includes(savedGroup)) groupSelect.value = savedGroup;
+        }
+
+        async function loadAllData() {
+            showLoading(true);
+            try {
+                // 【修正2】ここも 'supabase' ではなく 'supabaseClient' を使う
+                const { data, error } = await supabaseClient.from('app_data').select('*');
+                if (error) throw error;
+                if (data) {
+                    data.forEach(row => {
+                        if (row.key === 'mahjong_variable_score_history_int') historyData = row.value || [];
+                        if (row.key === 'mahjong_registered_players') registeredPlayers = row.value || [];
+                        if (row.key === 'mahjong_registered_groups') registeredGroups = row.value || [];
+                    });
+                }
+                if (registeredPlayers.length === 0) registeredPlayers = ["プレイヤー1", "プレイヤー2", "プレイヤー3"];
+
+                updatePlayerRegistrationDisplay();
+                updateGroupRegistrationDisplay();
+                updateGroupDropdown();
+                restoreSettings();
+                initializeInputs();
+                updateCarryoverInputForm(); 
+            } catch (error) {
+                alert("データの読み込みに失敗しました。\n" + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function saveData(key, value) {
+            showLoading(true);
+            try {
+                // 【修正3】ここも 'supabaseClient' に変更
+                const { error } = await supabaseClient.from('app_data').upsert({ key: key, value: value }, { onConflict: 'key' });
+                if (error) throw error;
+            } catch (error) {
+                alert("データの保存に失敗しました。\n" + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // --- 以下、変更なしのため省略（そのまま残してください）---
+        // showLoading以降の関数はそのまま使ってください
+        
+        function showLoading(isLoading) { document.getElementById('loadingOverlay').style.display = isLoading ? 'flex' : 'none'; }
+        
+        // ... (残りの関数は変更不要です) ...
+
+    
+
+        function showLoading(isLoading) { document.getElementById('loadingOverlay').style.display = isLoading ? 'flex' : 'none'; }
+
+        async function registerPlayer() {
+            const input = document.getElementById('newPlayerName');
+            const name = input.value.trim();
+            const msg = document.getElementById('regMessage');
+            msg.style.display='block'; msg.textContent = ""; msg.className = "message";
+            if (!name) return;
+            if (registeredPlayers.includes(name)) { msg.textContent = "エラー: 登録済みです"; msg.className = "message error"; return; }
+            registeredPlayers.push(name);
+            await saveData('mahjong_registered_players', registeredPlayers);
+            input.value = ""; msg.textContent = "登録しました"; msg.className = "message success";
+            updatePlayerRegistrationDisplay(); updateParticipantSelection(); updateCarryoverInputForm();
+            setTimeout(() => msg.style.display='none', 3000);
+        }
+
+        async function editPlayer(oldName) {
+            const newName = prompt(`「${oldName}」の新しい名前を入力してください:`, oldName);
+            if (!newName || newName === oldName) return;
+            if (registeredPlayers.includes(newName)) { alert("エラー: その名前は既に登録されています。"); return; }
+            if (!confirm(`「${oldName}」を「${newName}」に変更します。\n過去の対局履歴もすべて書き換えられますがよろしいですか？`)) return;
+            const index = registeredPlayers.indexOf(oldName);
+            if (index !== -1) registeredPlayers[index] = newName;
+            let historyChanged = false;
+            historyData.forEach(game => {
+                if (game.payouts && game.payouts[oldName]) { game.payouts[newName] = game.payouts[oldName]; delete game.payouts[oldName]; historyChanged = true; }
+                if (game.ranks) { for (const rank in game.ranks) { if (game.ranks[rank] === oldName) { game.ranks[rank] = newName; historyChanged = true; } } }
+            });
+            showLoading(true);
+            try {
+                await saveData('mahjong_registered_players', registeredPlayers);
+                if (historyChanged) await saveData('mahjong_variable_score_history_int', historyData);
+                updatePlayerRegistrationDisplay(); updateParticipantSelection(); updateCarryoverInputForm(); alert("変更しました。");
+            } catch (e) { alert("保存に失敗しました: " + e.message); } finally { showLoading(false); }
+        }
+
+        async function removePlayer(name) {
+            if (registeredPlayers.length <= 3) { alert("最低3人は必要です"); return; }
+            if (confirm("削除しますか？")) {
+                registeredPlayers = registeredPlayers.filter(p => p !== name);
+                await saveData('mahjong_registered_players', registeredPlayers);
+                updatePlayerRegistrationDisplay(); updateParticipantSelection(); updateCarryoverInputForm();
+            }
+        }
+
+        function updatePlayerRegistrationDisplay() {
+            const list = document.getElementById('registeredPlayersList'); list.innerHTML = '';
+            registeredPlayers.forEach(name => {
+                const tag = document.createElement('div'); tag.className = 'player-tag';
+                tag.innerHTML = `${name} <button onclick="editPlayer('${name}')" class="btn-edit" title="編集">✎</button><button onclick="removePlayer('${name}')" class="btn-delete" title="削除">×</button>`;
+                list.appendChild(tag);
+            });
+        }
+
+        async function registerGroup() {
+            const input = document.getElementById('newGroupName');
+            const name = input.value.trim();
+            const msg = document.getElementById('groupRegMessage');
+            msg.style.display='block'; msg.textContent = ""; msg.className = "message";
+            if (!name || name === '全体') return;
+            if (registeredGroups.includes(name)) { msg.textContent = "エラー: 登録済みです"; msg.className = "message error"; return; }
+            registeredGroups.push(name);
+            await saveData('mahjong_registered_groups', registeredGroups);
+            input.value = ""; msg.textContent = "登録しました"; msg.className = "message success";
+            updateGroupRegistrationDisplay(); updateGroupDropdown();
+            setTimeout(() => msg.style.display='none', 3000);
+        }
+
+        async function editGroup(oldName) {
+            const newName = prompt(`「${oldName}」の新しいグループ名を入力してください:`, oldName);
+            if (!newName || newName === oldName) return;
+            if (registeredGroups.includes(newName)) { alert("エラー: そのグループ名は既に登録されています。"); return; }
+            if (!confirm(`「${oldName}」を「${newName}」に変更します。\n過去の対局履歴もすべて書き換えられますがよろしいですか？`)) return;
+            const index = registeredGroups.indexOf(oldName);
+            if (index !== -1) registeredGroups[index] = newName;
+            let historyChanged = false;
+            historyData.forEach(game => { if (game.group === oldName) { game.group = newName; historyChanged = true; } });
+            showLoading(true);
+            try {
+                await saveData('mahjong_registered_groups', registeredGroups);
+                if (historyChanged) await saveData('mahjong_variable_score_history_int', historyData);
+                updateGroupRegistrationDisplay(); updateGroupDropdown(); alert("変更しました。");
+            } catch (e) { alert("保存に失敗しました: " + e.message); } finally { showLoading(false); }
+        }
+
+        async function removeGroup(name) {
+            if (confirm("削除しますか？")) {
+                registeredGroups = registeredGroups.filter(g => g !== name);
+                await saveData('mahjong_registered_groups', registeredGroups);
+                updateGroupRegistrationDisplay(); updateGroupDropdown();
+            }
+        }
+
+        function updateGroupRegistrationDisplay() {
+            const list = document.getElementById('registeredGroupsList'); list.innerHTML = '';
+            registeredGroups.forEach(name => {
+                const tag = document.createElement('div'); tag.className = 'group-tag';
+                tag.innerHTML = `${name} <button onclick="editGroup('${name}')" class="btn-edit" title="編集">✎</button><button onclick="removeGroup('${name}')" class="btn-delete" title="削除">×</button>`;
+                list.appendChild(tag);
+            });
+        }
+
+        function updateGroupDropdown() {
+            const select = document.getElementById('gameGroup'); const currentVal = select.value;
+            select.innerHTML = '<option value="">グループを選択してください</option>';
+            
+            // ★過去分引き継ぎを末尾に移動
+            let groups = [...registeredGroups];
+            const carryoverName = '過去分引き継ぎ';
+            const sorted = groups.filter(g => g !== carryoverName).reverse();
+            if (groups.includes(carryoverName)) sorted.push(carryoverName);
+
+            sorted.forEach(group => {
+                const option = document.createElement('option'); option.value = group; option.textContent = group; select.appendChild(option);
+            });
+            if (currentVal && registeredGroups.includes(currentVal)) select.value = currentVal;
+        }
+
+        function initializeInputs() { 
+            updateParticipantSelection(); 
+            updateUmaInputs(); 
+        }
+
+        function updateUmaInputs() {
+            const count = parseInt(document.getElementById('playerCount').value);
+            const container = document.getElementById('umaInputsContainer'); container.innerHTML = '';
+            let defaultValues = count === 3 ? [2000, 0, -2000] : (count === 5 ? [3000, 1500, 0, -1500, -3000] : [2000, 1000, -1000, -2000]);
+            for (let i = 1; i <= count; i++) {
+                const wrapper = document.createElement('div'); wrapper.className = 'uma-input-item';
+                wrapper.innerHTML = `<label>${i}位</label><input type="number" id="uma-rank-${i}" value="${defaultValues[i-1]}" data-rank="${i}">`;
+                container.appendChild(wrapper);
+                const input = wrapper.querySelector('input');
+                if (!((count % 2 !== 0) && (i === (count + 1) / 2))) {
+                    input.addEventListener('input', (e) => {
+                        const t = parseInt(e.target.getAttribute('data-rank')); const v = parseInt(e.target.value) || 0;
+                        const op = document.getElementById(`uma-rank-${(count + 1) - t}`); if (op) op.value = -v;
+                    });
+                }
+            }
+        }
+
+        function updateParticipantSelection() {
+            const container = document.getElementById('participant-selection'); container.innerHTML = '';
+            let savedParticipants = [];
+            try { savedParticipants = JSON.parse(localStorage.getItem(LS_KEYS.PARTICIPANTS) || "[]"); } catch(e) {}
+            registeredPlayers.forEach(player => {
+                const item = document.createElement('div'); item.className = 'participant-item';
+                item.textContent = player; item.setAttribute('data-name', player); item.onclick = toggleParticipant;
+                if (savedParticipants.includes(player)) item.classList.add('selected');
+                container.appendChild(item);
+            });
+            updateResultInputForm();
+            updateChipInputForm();
+        }
+
+        function toggleParticipant() { 
+            this.classList.toggle('selected'); 
+            updateResultInputForm(); 
+            updateChipInputForm();
+            saveSettings(); 
+        }
+        function getSelectedParticipants() { return Array.from(document.querySelectorAll('.participant-item.selected')).map(el => el.getAttribute('data-name')); }
+
+        function updateResultInputForm() {
+            const selected = getSelectedParticipants();
+            const grid = document.getElementById('result-input-grid');
+            const btn = document.getElementById('addGameBtn');
+            const msg = document.getElementById('message');
+            grid.innerHTML = '';
+            const count = parseInt(document.getElementById('playerCount').value);
+
+            if (selected.length !== count) {
+                msg.textContent = `参加人数が ${count} 人ではありません (${selected.length}人選択中)`;
+                msg.className = 'message error'; msg.style.display = 'block'; btn.disabled = true; return;
+            } else { msg.style.display = 'none'; btn.disabled = false; }
+
+            selected.forEach(player => {
+                const card = document.createElement('div'); card.className = 'result-player-card';
+                card.innerHTML = `
+                    <h3>${player}</h3>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label>素点 (例: +1500)</label>
+                        <input type="number" id="${player}-score" placeholder="0" oninput="autoCalculateRanks()" style="font-size:1.2rem; font-weight:bold;">
+                    </div>
+                    <div style="margin-top:10px;">
+                        <label style="font-size:0.8rem;">順位 </label>
+                        <input type="number" id="${player}-rank" min="1" max="${count}" placeholder="自動" style="font-weight:bold;">
+                    </div>
+                    <div id="${player}-payout" class="calculated-payout zero-payout">--</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function updateChipInputForm() {
+            const selected = getSelectedParticipants();
+            const grid = document.getElementById('chip-input-grid');
+            const btn = document.getElementById('registerChipsBtn');
+            grid.innerHTML = '';
+            
+            if (selected.length === 0) {
+                grid.innerHTML = '<div style="color:#666; text-align:center;">参加者を選択してください</div>';
+                btn.disabled = true;
+                return;
+            }
+            btn.disabled = false;
+
+            selected.forEach(player => {
+                const card = document.createElement('div'); card.className = 'result-player-card chip-player-card';
+                card.innerHTML = `
+                    <h3>${player}</h3>
+                    <div class="form-group">
+                        <label>チップ収支 (枚)</label>
+                        <input type="number" id="${player}-total-chips" placeholder="例: +5" style="font-size:1.2rem; font-weight:bold; color:#b45309; background:#fffbeb; border:1px solid #fcd34d;">
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function updateCarryoverInputForm() {
+            const grid = document.getElementById('carryover-input-grid');
+            grid.innerHTML = '';
+            
+            registeredPlayers.forEach(player => {
+                const card = document.createElement('div'); card.className = 'result-player-card carryover-player-card';
+                card.innerHTML = `
+                    <h3>${player}</h3>
+                    <div class="form-group">
+                        <label>累計スコア (pt)</label>
+                        <input type="number" id="${player}-carryover" placeholder="0" style="font-size:1.2rem; font-weight:bold; color:#374151; background:#fff; border:1px solid #d1d5db;">
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function autoCalculateRanks() {
+            const participants = getSelectedParticipants();
+            let scores = participants.map(name => ({ name: name, score: document.getElementById(`${name}-score`).value === "" ? -Infinity : parseFloat(document.getElementById(`${name}-score`).value) }));
+            scores.sort((a, b) => b.score - a.score);
+            scores.forEach((item, index) => { 
+                if(item.score !== -Infinity) {
+                     document.getElementById(`${item.name}-rank`).value = index + 1;
+                }
+            });
+        }
+
+        async function addGame() {
+            saveSettings();
+            const msg = document.getElementById('message');
+            const participants = getSelectedParticipants();
+            const count = parseInt(document.getElementById('playerCount').value);
+            const group = document.getElementById('gameGroup').value;
+
+            if (!group) { msg.textContent = "対局日付/グループを選択してください"; msg.className = "message error"; msg.style.display = 'block'; return; }
+
+            let scoreValues = [];
+            for (const name of participants) {
+                const s = parseFloat(document.getElementById(`${name}-score`).value);
+                if (!isNaN(s)) scoreValues.push(s);
+            }
+            if (scoreValues.length === count && new Set(scoreValues).size !== count) {
+                if (!confirm("⚠️ 同点のプレイヤーが検出されました。そのまま記録しますか？")) return;
+            }
+
+            let umaPoints = [];
+            for(let i=1; i<=count; i++) {
+                const val = parseInt(document.getElementById(`uma-rank-${i}`).value);
+                if (isNaN(val)) { msg.textContent = "順位点の設定値が不正です"; msg.className = "message error"; msg.style.display = 'block'; return; }
+                umaPoints.push(val);
+            }
+            if (umaPoints.reduce((a,b) => a+b, 0) !== 0) { msg.textContent = `順位点の合計が0になりません`; msg.className = "message error"; msg.style.display = 'block'; return; }
+
+            let totalRaw = 0, results = {}, ranksUsed = [];
+            for (const name of participants) {
+                const rank = parseInt(document.getElementById(`${name}-rank`).value);
+                const score = parseFloat(document.getElementById(`${name}-score`).value);
+                
+                if (!rank || isNaN(score) || rank < 1 || rank > count) { msg.textContent = `${name} の順位または点数が無効です`; msg.className = "message error"; msg.style.display = 'block'; return; }
+                if (ranksUsed.includes(rank)) { msg.textContent = `順位 ${rank}位 が重複しています`; msg.className = "message error"; msg.style.display = 'block'; return; }
+                ranksUsed.push(rank);
+                results[name] = { rank, score };
+                totalRaw += score;
+            }
+
+            if (Math.abs(totalRaw) > 0.1) { msg.textContent = `点数の合計が0になりません`; msg.className = "message error"; msg.style.display = 'block'; return; }
+
+            let totalPayouts = {}, gameRanks = {};
+            for (const name of participants) {
+                const d = results[name];
+                const total = d.score + umaPoints[d.rank - 1];
+                totalPayouts[name] = { scorePt: d.score, bonusPt: umaPoints[d.rank - 1], chipCount: 0, chipPt: 0, total: total, rank: d.rank };
+                gameRanks[d.rank] = name;
+                const el = document.getElementById(`${name}-payout`);
+                el.innerHTML = `${Math.round(total)} <span style="font-size:0.6em; font-weight:normal;">pt</span>`;
+                el.className = `calculated-payout ${total > 0 ? 'positive-payout' : (total < 0 ? 'negative-payout' : 'zero-payout')}`;
+            }
+
+            historyData.push({
+                id: Date.now(),
+                date: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                group: group,
+                playerCount: count,
+                payouts: totalPayouts,
+                ranks: gameRanks,
+                chipValue: 0, 
+                gameType: 'standard'
+            });
+            
+            await saveData('mahjong_variable_score_history_int', historyData);
+            msg.textContent = "記録完了。履歴ページへ移動します..."; msg.className = "message success"; msg.style.display = 'block';
+            setTimeout(() => { window.location.href = 'history.html'; }, 1000);
+        }
+
+        async function registerChips() {
+            const msg = document.getElementById('chip-message');
+            const participants = getSelectedParticipants();
+            const group = document.getElementById('gameGroup').value;
+            const chipVal = parseInt(document.getElementById('chipValue').value) || 0;
+
+            if (!group) { msg.textContent = "対局日付/グループを選択してください"; msg.className = "message error"; msg.style.display = 'block'; return; }
+            if (chipVal === 0) { msg.textContent = "チップ単価を設定してください"; msg.className = "message error"; msg.style.display = 'block'; return; }
+
+            let chipResults = {};
+            let totalChips = 0;
+
+            for (const name of participants) {
+                const rawVal = document.getElementById(`${name}-total-chips`).value;
+                const chips = parseInt(rawVal) || 0;
+                chipResults[name] = chips;
+                totalChips += chips;
+            }
+
+            if (totalChips !== 0) {
+                msg.textContent = `チップ枚数の合計が0になりません (現在: ${totalChips}枚)`; 
+                msg.className = "message error"; msg.style.display = 'block'; return;
+            }
+
+            let allZero = true;
+            for(const name in chipResults) { if(chipResults[name] !== 0) allZero = false; }
+            if (allZero) { if (!confirm("全員のチップが0枚です。本当に登録しますか？")) return; }
+
+            let totalPayouts = {};
+            for (const name of participants) {
+                const count = chipResults[name];
+                const pt = count * chipVal;
+                totalPayouts[name] = { scorePt: 0, bonusPt: 0, chipCount: count, chipPt: pt, total: pt, rank: 0 };
+            }
+
+            historyData.push({
+                id: Date.now(),
+                date: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                group: group,
+                playerCount: participants.length,
+                payouts: totalPayouts,
+                ranks: {}, 
+                chipValue: chipVal,
+                gameType: 'chips'
+            });
+
+            await saveData('mahjong_variable_score_history_int', historyData);
+            msg.textContent = "チップ収支を登録しました。履歴ページへ移動します..."; msg.className = "message success"; msg.style.display = 'block';
+            setTimeout(() => { window.location.href = 'history.html'; }, 1000);
+        }
+
+        async function registerCarryover() {
+            const msg = document.getElementById('carryover-message');
+            
+            let carryoverData = {};
+            let totalPt = 0;
+            let count = 0;
+
+            for (const name of registeredPlayers) {
+                const rawVal = document.getElementById(`${name}-carryover`).value;
+                if (rawVal !== "") {
+                    const pt = parseInt(rawVal);
+                    if (!isNaN(pt) && pt !== 0) {
+                        carryoverData[name] = pt;
+                        totalPt += pt;
+                        count++;
+                    }
+                }
+            }
+
+            if (count === 0) {
+                msg.textContent = "値を入力してください"; 
+                msg.className = "message error"; msg.style.display = 'block'; return;
+            }
+
+            if (totalPt !== 0) {
+                msg.textContent = `合計が0になりません (現在: ${totalPt} pt)`; 
+                msg.className = "message error"; msg.style.display = 'block'; return;
+            }
+
+            if (!confirm("引き継ぎデータを登録しますか？")) return;
+
+            let totalPayouts = {};
+            for (const name in carryoverData) {
+                const pt = carryoverData[name];
+                totalPayouts[name] = { scorePt: 0, bonusPt: 0, chipCount: 0, chipPt: 0, total: pt, rank: 0 };
+            }
+
+            historyData.push({
+                id: 0, // ★IDを0にして最古のデータとして扱う
+                date: "1900/01/01 00:00", 
+                group: '過去分引き継ぎ', 
+                playerCount: count,
+                payouts: totalPayouts,
+                ranks: {}, 
+                chipValue: 0,
+                gameType: 'carryover'
+            });
+
+            await saveData('mahjong_variable_score_history_int', historyData);
+            msg.textContent = "引き継ぎデータを登録しました。履歴ページへ移動します..."; msg.className = "message success"; msg.style.display = 'block';
+            setTimeout(() => { window.location.href = 'history.html'; }, 1000);
+        }
+    </script>
+</body>
+</html>

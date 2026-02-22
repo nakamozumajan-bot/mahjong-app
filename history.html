@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>📈 公大中麻雀倶楽部 - 履歴・収支</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ベーススタイル */
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border-radius: 16px;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            margin: 0; padding: 20px;
+            background: var(--bg-gradient); color: var(--text-main);
+            min-height: 100vh; -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding-bottom: 60px; }
+
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { color: var(--primary); font-size: 1.8rem; margin: 0 0 15px 0; text-shadow: 2px 2px 4px rgba(255,255,255,0.5); }
+        .nav-link { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; background: #fff; color: var(--text-main); text-decoration: none; border-radius: 50px; font-weight: 700; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: all 0.3s ease; border: 1px solid #e5e7eb; }
+        .nav-link:hover { transform: translateY(-2px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); color: var(--primary); }
+
+        .card { background: var(--card-bg); backdrop-filter: blur(10px); border-radius: var(--border-radius); padding: 25px; margin-bottom: 25px; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.5); overflow: hidden; }
+        h2 { font-size: 1.2rem; color: var(--text-main); margin-top: 0; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; display: flex; align-items: center; gap: 8px; }
+
+        /* フィルタースタイル改修 */
+        .filter-container { display: flex; flex-wrap: wrap; align-items: start; gap: 15px; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+        .filter-group label { font-size: 0.85rem; font-weight: bold; color: var(--text-sub); }
+        
+        select { padding: 10px 15px; border: 1px solid #d1d5db; border-radius: 8px; background-color: white; font-size: 1rem; cursor: pointer; outline: none; transition: border-color 0.2s; font-family: 'Noto Sans JP', sans-serif; width: 100%; box-sizing: border-box; }
+        select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+
+        /* マルチセレクト用スタイル */
+        .checkbox-list-container {
+            background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px;
+            max-height: 150px;
+            overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
+        }
+        .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; cursor: pointer; padding: 2px 0; }
+        .checkbox-item:hover { background-color: #f9fafb; }
+        .checkbox-item input[type="checkbox"] { transform: scale(1.1); cursor: pointer; accent-color: var(--primary); }
+        .filter-actions { display: flex; gap: 8px; margin-top: 5px; }
+        .text-btn { background: none; border: none; font-size: 0.8rem; color: var(--primary); cursor: pointer; padding: 0; text-decoration: underline; }
+        .text-btn:hover { color: var(--primary-light); }
+
+        #chartContainer { position: relative; width: 100%; height: 350px; }
+
+        .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        table { width: 100%; border-collapse: collapse; background-color: white; white-space: nowrap; font-size: 0.9rem; }
+        
+        th { background-color: #f9fafb; color: var(--text-sub); font-weight: 600; padding: 12px 15px; text-align: left; border-bottom: 2px solid #e5e7eb; position: sticky; top: 0; z-index: 10; }
+        td { padding: 12px 15px; border-bottom: 1px solid #f3f4f6; color: var(--text-main); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background-color: #f9fafb; }
+
+        .positive { color: var(--secondary); font-weight: bold; font-family: 'Noto Sans JP', sans-serif; font-variant-numeric: tabular-nums; text-align: right; }
+        .negative { color: var(--danger); font-weight: bold; font-family: 'Noto Sans JP', sans-serif; font-variant-numeric: tabular-nums; text-align: right; }
+        .zero { color: #d1d5db; font-family: 'Noto Sans JP', sans-serif; font-variant-numeric: tabular-nums; text-align: right; }
+
+        .total-payout-cell { 
+            font-weight: 800; background-color: #fdfdfd; border-right: 3px solid var(--primary-light) !important; 
+            font-size: 1.0rem;
+            font-family: 'Noto Sans JP', sans-serif; font-variant-numeric: tabular-nums;
+            text-align: right;
+        }
+        .chip-info { font-size: 0.75em; color: #b45309; display: block; font-weight: normal; margin-top: 2px; }
+
+        #resultsTable th:nth-child(n+2), #resultsTable td:nth-child(n+2) { text-align: right; }
+
+        .chip-history-row { background-color: #fffbeb !important; }
+        .chip-history-row td { border-bottom: 1px solid #fcd34d; }
+        .chip-badge { display: inline-block; background: var(--warning); color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-bottom: 2px; }
+
+        /* Buttons */
+        .action-cell { display: flex; gap: 5px; justify-content: flex-end; }
+        button.delete-btn { background: #fee2e2; color: var(--danger); border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: all 0.2s; }
+        button.delete-btn:hover { background: var(--danger); color: white; }
+        button.edit-btn { background: #e0e7ff; color: var(--primary); border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: all 0.2s; }
+        button.edit-btn:hover { background: var(--primary); color: white; }
+
+        .memo-input-area { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+        textarea.memo-textarea { width: 100%; height: 80px; padding: 15px; border: 2px solid #e5e7eb; border-radius: 12px; resize: vertical; font-size: 1rem; box-sizing: border-box; font-family: 'Noto Sans JP', sans-serif; }
+        textarea.memo-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+        .memo-submit-btn { align-self: flex-end; background: var(--primary); color: white; border: none; padding: 10px 25px; border-radius: 50px; cursor: pointer; font-weight: bold; }
+        .memo-list { display: flex; flex-direction: column; gap: 10px; }
+        .memo-item { background: #fff; border-left: 5px solid var(--primary); padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .memo-meta { font-size: 0.8rem; color: #9ca3af; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .memo-delete { background: none; border: none; color: #d1d5db; font-size: 1.2rem; cursor: pointer; }
+        .memo-delete:hover { color: var(--danger); }
+
+        /* Settlement */
+        #settlementContainer { margin-top: 30px; padding-top: 25px; border-top: 2px dashed #e5e7eb; display: none; }
+        .settlement-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
+        .settlement-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 15px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: block; }
+        .settlement-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #f3f4f6; font-size: 1.05rem; }
+        .settlement-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 0.95rem; }
+        .settlement-row:not(:last-child) { border-bottom: 1px dashed #f3f4f6; }
+        .payer { color: var(--danger); font-weight: bold; font-size: 1.1em; }
+        .receiver { color: var(--secondary); font-weight: bold; }
+        .amount { font-weight: 800; font-size: 1.1em; color: var(--text-main); font-family: 'Noto Sans JP', sans-serif; font-variant-numeric: tabular-nums; }
+        .arrow { color: #d1d5db; margin: 0 8px; font-size: 1em; }
+        .total-payment-label { font-size: 0.8em; color: #9ca3af; font-weight: normal; margin-left: 5px; }
+
+        #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(5px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e5e7eb; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(3px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .modal { background: white; width: 100%; max-width: 500px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); overflow: hidden; animation: slideIn 0.3s ease-out; }
+        .modal-header { padding: 20px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { margin: 0; font-size: 1.25rem; color: var(--text-main); font-weight: bold; }
+        .modal-close { background: none; border: none; font-size: 1.5rem; color: #9ca3af; cursor: pointer; padding: 0; line-height: 1; }
+        .modal-body { padding: 20px; max-height: 70vh; overflow-y: auto; }
+        .modal-footer { padding: 20px; border-top: 1px solid #e5e7eb; background: #f9fafb; display: flex; justify-content: flex-end; gap: 10px; }
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; font-size: 0.95rem; }
+        .btn-secondary { background: #e5e7eb; color: var(--text-main); }
+        .btn-primary { background: var(--primary); color: white; }
+        
+        .edit-row { display: grid; grid-template-columns: 3fr 2fr 2fr; gap: 10px; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #f3f4f6; position: relative; }
+        .edit-row.chip-row { grid-template-columns: 2fr 2fr; }
+        .edit-row label { font-weight: bold; color: var(--text-main); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .edit-input { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem; text-align: right; box-sizing: border-box; font-family: 'Noto Sans JP', sans-serif; font-variant-numeric: tabular-nums; }
+        .edit-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1); }
+        .input-group-label { font-size: 0.75rem; color: #6b7280; text-align: center; margin-bottom: 2px; }
+        .modal-info { background: #eff6ff; color: var(--primary); padding: 10px; border-radius: 8px; font-size: 0.9rem; margin-bottom: 15px; text-align: center; }
+
+        .delete-row-btn {
+            background: none; border: none; color: #d1d5db; 
+            font-size: 1.2rem; cursor: pointer; padding: 0 5px;
+            transition: color 0.2s; margin-left: 5px;
+        }
+        .delete-row-btn:hover { color: var(--danger); }
+
+        .add-player-section {
+            margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;
+            display: flex; gap: 10px; align-items: center;
+        }
+        .add-player-select {
+            flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+        .btn-add {
+            background: var(--secondary); color: white; border: none;
+            padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;
+        }
+        .btn-add:hover { opacity: 0.9; }
+
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            .card { padding: 20px; }
+            .filter-container { flex-direction: column; align-items: stretch; }
+            .filter-group { min-width: 100%; }
+            .edit-row { grid-template-columns: 1fr 1fr 1fr; font-size: 0.9em; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div style="font-weight: bold; color: var(--primary);">データを読み込み中...</div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>🀄️ 公大中麻雀倶楽部</h1>
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <a href="index.html" class="nav-link">
+                    <span>📝 データ入力ページへ戻る</span>
+                </a>
+                
+                <a href="https://mahjong-app-5fwh4uljkbcf48aq5sqmun.streamlit.app/" target="_blank" class="nav-link" style="color: #e11d48; border-color: #fecdd3;">
+                    <span>🤖 詳細分析 (Pythonアプリ)</span>
+                </a>
+            </div>
+        </header>
+
+        <div class="card">
+            <h2>🔍 データの絞り込み</h2>
+            <div class="filter-container">
+                <div class="filter-group">
+                    <label for="groupFilter">集計グループ</label>
+                    <select id="groupFilter" onchange="updateDisplay()"></select>
+                </div>
+                <div class="filter-group">
+                    <label>プレイヤー絞り込み (複数選択可)</label>
+                    <div id="playerCheckboxContainer" class="checkbox-list-container">
+                        </div>
+                    <div class="filter-actions">
+                        <button class="text-btn" onclick="toggleAllPlayers(true)">全選択</button>
+                        <span style="color:#d1d5db">|</span>
+                        <button class="text-btn" onclick="toggleAllPlayers(false)">全解除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 収支推移グラフ</h2>
+            
+            <div style="margin-bottom: 15px; display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
+                <label for="chartAxisSelect" style="font-size: 0.9rem; font-weight: bold; color: var(--text-sub);">横軸の単位:</label>
+                <select id="chartAxisSelect" onchange="updateDisplay()" style="width: auto; padding: 6px 12px;">
+                    <option value="game">対局</option>
+                    <option value="group">日付(グループ)</option>
+                </select>
+            </div>
+
+            <div id="chartContainer"><canvas id="payoutChart"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h2>👑 グループ別累計収支</h2>
+            <div class="table-wrapper">
+                <table id="resultsTable">
+                    <thead><tr><th>プレイヤー</th><th>対局数</th><th>総合収支 (pt)</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="settlementContainer">
+                <h3 style="color: var(--text-sub); margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+                    ⚖️ 精算シミュレーション <span style="font-size:0.7em; font-weight:normal; background:#f3f4f6; padding:2px 8px; border-radius:10px;">最小回数</span>
+                </h3>
+                <div id="settlementPlan"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🗒️ メモ・掲示板</h2>
+            <div class="memo-input-area">
+                <textarea id="memoText" class="memo-textarea" placeholder="次回の予定やメモを入力..."></textarea>
+                <button onclick="addMemo()" class="memo-submit-btn">投稿</button>
+            </div>
+            <div id="memoListContainer" class="memo-list"></div>
+        </div>
+        
+        <div class="card">
+            <h2>🧾 対局履歴</h2>
+            <div class="table-wrapper">
+                <table id="historyTable"><thead></thead><tbody></tbody></table>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">履歴を編集</h3>
+                <button class="modal-close" onclick="closeEditModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="editModalInfo" class="modal-info"></div>
+                <div id="editFormContainer"></div>
+                <div style="text-align: right; margin-top: 15px; font-weight: bold; color: var(--text-sub);" id="editTotalCheck">合計: 0</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
+                <button class="btn btn-primary" onclick="saveEditedGame()">保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // ★★★ Supabase URL & Key ★★★
+        // ============================================================
+        const SUPABASE_URL = "https://mikcjkqvdjkqkcgsufkh.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pa2Nqa3F2ZGprcWtjZ3N1ZmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NTU5ODIsImV4cCI6MjA3OTQzMTk4Mn0.O4gR7N9279zAsgunCDZre4FJAM2gHT4uwUlFkjEhm-k";
+        // ============================================================
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let historyData = []; 
+        let registeredGroups = [];
+        let registeredPlayers = []; 
+        let memos = [];
+        let payoutChart = null; 
+        let currentEditingId = null;
+        let availablePlayersList = []; 
+
+        document.addEventListener('DOMContentLoaded', () => { loadAllData(); });
+
+        async function loadAllData() {
+            showLoading(true);
+            try {
+                const { data, error } = await supabaseClient.from('app_data').select('*');
+                if (error) throw error;
+                if (data) {
+                    data.forEach(row => {
+                        if (row.key === 'mahjong_variable_score_history_int') historyData = row.value || [];
+                        if (row.key === 'mahjong_registered_groups') registeredGroups = row.value || [];
+                        if (row.key === 'mahjong_registered_players') registeredPlayers = row.value || []; 
+                        if (row.key === 'mahjong_memos') memos = row.value || [];
+                    });
+                }
+                initializeGroupFilter();
+                initializePlayerFilter();
+                renderMemos();
+                updateDisplay();
+            } catch (error) {
+                alert("データの読み込みに失敗しました。\n" + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function saveData(key, value) {
+            showLoading(true);
+            try {
+                const { error } = await supabaseClient.from('app_data').upsert({ key: key, value: value }, { onConflict: 'key' });
+                if (error) throw error;
+            } catch (error) {
+                alert("データの保存に失敗しました。\n" + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showLoading(isLoading) { document.getElementById('loadingOverlay').style.display = isLoading ? 'flex' : 'none'; }
+
+        // --- メモ機能 ---
+        async function addMemo() {
+            const text = document.getElementById('memoText').value.trim();
+            if (!text) return;
+            memos.unshift({ id: Date.now(), text: text, date: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) });
+            await saveData('mahjong_memos', memos);
+            renderMemos(); document.getElementById('memoText').value = '';
+        }
+
+        async function deleteMemo(id) {
+            if (confirm("このメモを削除しますか？")) {
+                memos = memos.filter(memo => memo.id !== id);
+                await saveData('mahjong_memos', memos);
+                renderMemos();
+            }
+        }
+
+        function renderMemos() {
+            const container = document.getElementById('memoListContainer');
+            container.innerHTML = memos.length === 0 ? '<div style="color:#9ca3af; text-align:center; padding:20px;">メモはまだありません。</div>' : '';
+            memos.forEach(memo => {
+                const div = document.createElement('div'); div.className = 'memo-item';
+                div.innerHTML = `<div class="memo-meta"><span>${memo.date}</span><button class="memo-delete" onclick="deleteMemo(${memo.id})" title="削除">×</button></div><div class="memo-content">${memo.text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>`;
+                container.appendChild(div);
+            });
+        }
+
+        // --- 初期化ロジック ---
+        function initializeGroupFilter() {
+            const historyGroups = [...new Set(historyData.map(g => g.group))].filter(g => g && g !== '全体');
+            let combined = [...registeredGroups];
+            historyGroups.forEach(g => { if (!combined.includes(g)) combined.push(g); });
+            const carryoverName = '過去分引き継ぎ';
+            const allGroups = combined.filter(g => g !== '全体' && g !== carryoverName).reverse();
+            let select = document.getElementById('groupFilter');
+            const current = select.value;
+            select.innerHTML = '<option value="all">全体 (全グループ合計)</option>';
+            allGroups.forEach(g => { const op = document.createElement('option'); op.value = g; op.textContent = g; select.appendChild(op); });
+            if (combined.includes(carryoverName)) {
+                const op = document.createElement('option'); op.value = carryoverName; op.textContent = carryoverName; select.appendChild(op);
+            }
+            select.value = (current && (current === 'all' || combined.includes(current))) ? current : 'all';
+        }
+
+        function initializePlayerFilter() {
+            const historyPlayers = new Set(historyData.flatMap(h => Object.keys(h.payouts)));
+            availablePlayersList = [...new Set([...registeredPlayers, ...historyPlayers])].sort();
+            
+            const container = document.getElementById('playerCheckboxContainer');
+            container.innerHTML = '';
+
+            availablePlayersList.forEach((p, index) => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-item';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = p;
+                checkbox.checked = true; // デフォルトは全員選択
+                checkbox.onchange = updateDisplay; // 変更時に更新
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(p));
+                container.appendChild(label);
+            });
+        }
+
+        function getSelectedPlayers() {
+            const checkboxes = document.querySelectorAll('#playerCheckboxContainer input[type="checkbox"]');
+            const selected = [];
+            checkboxes.forEach(cb => { if(cb.checked) selected.push(cb.value); });
+            return selected;
+        }
+
+        function toggleAllPlayers(checked) {
+            const checkboxes = document.querySelectorAll('#playerCheckboxContainer input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = checked);
+            updateDisplay();
+        }
+
+        async function deleteGame(id) {
+            if (confirm("この履歴を削除してもよろしいですか？")) {
+                historyData = historyData.filter(game => game.id !== id);
+                await saveData('mahjong_variable_score_history_int', historyData);
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            const group = document.getElementById('groupFilter').value;
+            const selectedPlayers = getSelectedPlayers();
+            const axisMode = document.getElementById('chartAxisSelect') ? document.getElementById('chartAxisSelect').value : 'game';
+
+            const isAllPlayersSelected = selectedPlayers.length === availablePlayersList.length;
+
+            let filtered = historyData.filter(g => {
+                const groupMatch = group === 'all' || g.group === group;
+                const playersInGame = Object.keys(g.payouts);
+                const playerMatch = selectedPlayers.some(p => playersInGame.includes(p));
+                return groupMatch && playerMatch;
+            }).sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+
+            const { labels, datasets, allPlayerNames } = createChartData(filtered, selectedPlayers, axisMode);
+            drawChart(labels, datasets);
+
+            const totals = {};
+            selectedPlayers.forEach(n => { totals[n] = { games:0, totalRank:0, totalPayout:0 }; });
+
+            filtered.forEach(g => {
+                Object.entries(g.payouts).forEach(([n, r]) => {
+                    if (!selectedPlayers.includes(n)) return;
+
+                    if (!totals[n]) totals[n] = { games:0, totalRank:0, totalPayout:0 };
+                    if (g.gameType !== 'chips') {
+                        totals[n].games++; 
+                        totals[n].totalRank += r.rank;
+                    }
+                    totals[n].totalPayout += r.total;
+                });
+            });
+
+            const tb = document.querySelector('#resultsTable tbody'); tb.innerHTML = '';
+            Object.entries(totals).filter(([,d]) => d.games > 0 || d.totalPayout !== 0).sort(([,a],[,b]) => b.totalPayout - a.totalPayout).forEach(([n, d]) => {
+                const r = tb.insertRow();
+                r.insertCell().textContent = n; 
+                r.insertCell().textContent = d.games;
+                const c = r.insertCell(); c.textContent = Math.round(d.totalPayout).toLocaleString();
+                c.className = d.totalPayout > 0 ? 'positive' : (d.totalPayout < 0 ? 'negative' : 'zero');
+            });
+
+            const setCon = document.getElementById('settlementContainer');
+            if (group === 'all' || !isAllPlayersSelected) { 
+                setCon.style.display = 'none';
+            } else { 
+                setCon.style.display = 'block'; calculateAndDisplaySettlement(totals); 
+            }
+            
+            const hb = document.querySelector('#historyTable tbody');
+            const hh = document.querySelector('#historyTable thead');
+            hb.innerHTML = ''; hh.innerHTML = '';
+            
+            const refNames = [...new Set(filtered.flatMap(h => Object.keys(h.payouts)))].sort();
+            
+            if (refNames.length > 0) {
+                const hr = hh.insertRow();
+                ['日時','グループ','人数'].forEach(t => hr.insertCell().innerHTML = t);
+                for(let i=1; i<=5; i++) hr.insertCell().innerHTML = `${i}位`;
+                refNames.forEach(n => {
+                    let opacity = selectedPlayers.includes(n) ? '1' : '0.5';
+                    let c1 = hr.insertCell(); c1.innerHTML = `<span style="font-size:0.9em; color:#9ca3af; opacity:${opacity}">${n}</span><br>素点`; c1.style.textAlign = 'right';
+                    let c2 = hr.insertCell(); c2.innerHTML = `<span style="font-size:0.9em; color:#9ca3af; opacity:${opacity}">${n}</span><br>順位点`; c2.style.textAlign = 'right';
+                    let c3 = hr.insertCell(); c3.innerHTML = `<span style="font-size:0.9em; color:var(--primary); opacity:${opacity}">${n}</span><br>合計`; 
+                    c3.style.textAlign = 'right'; c3.style.borderRight = '3px solid var(--primary-light)'; c3.style.backgroundColor = '#f8fafc';
+                });
+                hr.insertCell().innerHTML = '操作';
+            }
+
+            [...filtered].reverse().forEach(g => {
+                const r = hb.insertRow();
+                const isChipGame = g.gameType === 'chips';
+                if (isChipGame) r.className = 'chip-history-row';
+
+                const dp = g.date.split(' ');
+                r.insertCell().innerHTML = dp.length >= 2 ? `${dp[0]}<br><span style="font-size:0.85em; color:#9ca3af">${dp[1]}</span>` : g.date;
+                r.insertCell().textContent = g.group || '-'; 
+                
+                if (isChipGame) {
+                    r.insertCell().innerHTML = '<span class="chip-badge">ﾁｯﾌﾟ精算</span>';
+                } else {
+                    r.insertCell().textContent = g.playerCount + "人";
+                }
+
+                for(let i=1; i<=5; i++) {
+                    if (isChipGame) {
+                        r.insertCell().textContent = '-';
+                    } else {
+                        r.insertCell().textContent = g.ranks[i] || (i > g.playerCount ? '-' : 'N/A');
+                    }
+                }
+
+                refNames.forEach(pn => {
+                    const pd = g.payouts[pn];
+                    const styleAdd = selectedPlayers.includes(pn) ? '' : 'opacity: 0.4;';
+                    
+                    if (pd) {
+                        if (isChipGame) {
+                            const c1 = r.insertCell(); c1.textContent = '-'; c1.style.color='#aaa'; c1.style.textAlign = 'right'; c1.style.cssText += styleAdd;
+                            const c2 = r.insertCell(); c2.textContent = '-'; c2.style.color='#aaa'; c2.style.textAlign = 'right'; c2.style.cssText += styleAdd;
+                            const tc = r.insertCell();
+                            tc.innerHTML = `<span class="chip-info">${pd.chipCount>0?'+':''}${pd.chipCount}枚</span><span style="font-size:1.1em">${Math.round(pd.total).toLocaleString()}</span>`;
+                            tc.className = pd.total>0?'positive total-payout-cell':(pd.total<0?'negative total-payout-cell':'zero total-payout-cell');
+                            tc.style.cssText += styleAdd;
+                        } else {
+                            const sc = r.insertCell(); sc.textContent = Math.round(pd.scorePt); sc.className = pd.scorePt>0?'positive':(pd.scorePt<0?'negative':'zero'); sc.style.cssText += styleAdd;
+                            const bc = r.insertCell(); bc.textContent = Math.round(pd.bonusPt); bc.className = pd.bonusPt>0?'positive':(pd.bonusPt<0?'negative':'zero'); bc.style.cssText += styleAdd;
+                            const tc = r.insertCell(); 
+                            tc.innerHTML = `<span>${Math.round(pd.total).toLocaleString()}</span>`;
+                            tc.className = pd.total>0?'positive total-payout-cell':(pd.total<0?'negative total-payout-cell':'zero total-payout-cell');
+                            tc.style.cssText += styleAdd;
+                        }
+                    } else {
+                        for(let i=0; i<3; i++) {
+                            const c = r.insertCell(); c.textContent = '-'; c.style.textAlign='center'; c.style.color='#e5e7eb';
+                            if(i===2) { c.style.borderRight='3px solid var(--primary-light)'; c.style.backgroundColor='#f8fafc'; }
+                        }
+                    }
+                });
+                const dc = r.insertCell();
+                dc.className = 'action-cell';
+                
+                const editBtn = document.createElement('button');
+                editBtn.textContent = '編集'; editBtn.className = 'edit-btn';
+                editBtn.onclick = () => openEditModal(g.id);
+                dc.appendChild(editBtn);
+
+                const delBtn = document.createElement('button'); 
+                delBtn.textContent = '削除'; delBtn.className = 'delete-btn';
+                delBtn.onclick = () => deleteGame(g.id); 
+                dc.appendChild(delBtn);
+            });
+        }
+
+        // --- 編集機能 (Modal) ---
+        function addEditRow(container, player, isChip, data = null) {
+            const row = document.createElement('div');
+            row.className = isChip ? 'edit-row chip-row' : 'edit-row';
+            
+            const nameLabel = document.createElement('label');
+            nameLabel.textContent = player;
+            nameLabel.style.display = 'flex';
+            nameLabel.style.alignItems = 'center';
+            
+            const delBtn = document.createElement('button');
+            delBtn.innerHTML = '×';
+            delBtn.className = 'delete-row-btn';
+            delBtn.title = 'このプレイヤーを削除';
+            delBtn.onclick = function() { row.remove(); calcEditTotal(); };
+            nameLabel.appendChild(delBtn);
+            row.appendChild(nameLabel);
+
+            if (isChip) {
+                const chipInput = document.createElement('input');
+                chipInput.type = 'number'; chipInput.className = 'edit-input chip-val'; chipInput.dataset.player = player;
+                chipInput.value = data ? data.chipCount : 0; chipInput.oninput = calcEditTotal;
+                row.appendChild(chipInput);
+            } else {
+                const scoreInput = document.createElement('input');
+                scoreInput.type = 'number'; scoreInput.className = 'edit-input score-val'; scoreInput.dataset.player = player;
+                scoreInput.placeholder = '素点'; scoreInput.value = data ? Math.round(data.scorePt) : 0; scoreInput.oninput = calcEditTotal;
+                row.appendChild(scoreInput);
+                const bonusInput = document.createElement('input');
+                bonusInput.type = 'number'; bonusInput.className = 'edit-input bonus-val'; bonusInput.dataset.player = player;
+                bonusInput.placeholder = '順位点'; bonusInput.value = data ? Math.round(data.bonusPt) : 0; bonusInput.oninput = calcEditTotal;
+                row.appendChild(bonusInput);
+            }
+            container.appendChild(row);
+        }
+
+        function openEditModal(id) {
+            currentEditingId = id;
+            const game = historyData.find(g => g.id === id);
+            if (!game) return;
+
+            const modalInfo = document.getElementById('editModalInfo');
+            const formContainer = document.getElementById('editFormContainer');
+            formContainer.innerHTML = '';
+            document.getElementById('editModal').style.display = 'flex';
+
+            const isChip = game.gameType === 'chips';
+            modalInfo.textContent = `${game.date} - ${game.group} (${isChip ? 'チップ精算' : '通常対局'})`;
+
+            if (isChip) {
+                formContainer.innerHTML += `<div class="edit-row chip-row" style="border-bottom:2px solid #e5e7eb; margin-bottom:15px;"><span class="input-group-label" style="text-align:left; font-size:0.9rem; font-weight:bold;">名前 (削除)</span><span class="input-group-label" style="text-align:right; font-size:0.9rem; font-weight:bold;">枚数</span></div>`;
+            } else {
+                formContainer.innerHTML += `<div class="edit-row" style="border-bottom:2px solid #e5e7eb; margin-bottom:15px;"><span class="input-group-label" style="text-align:left; font-size:0.9rem; font-weight:bold;">名前 (削除)</span><span class="input-group-label" style="text-align:right; font-size:0.9rem; font-weight:bold;">素点</span><span class="input-group-label" style="text-align:right; font-size:0.9rem; font-weight:bold;">順位点等</span></div>`;
+            }
+
+            const players = Object.keys(game.payouts).sort();
+            players.forEach(player => { addEditRow(formContainer, player, isChip, game.payouts[player]); });
+
+            const addSection = document.createElement('div'); addSection.className = 'add-player-section';
+            const select = document.createElement('select'); select.className = 'add-player-select'; select.id = 'addPlayerSelect';
+            const currentPlayers = new Set(players);
+            let optionsHtml = '<option value="">追加するプレイヤーを選択...</option>';
+            registeredPlayers.forEach(p => { if (!currentPlayers.has(p)) optionsHtml += `<option value="${p}">${p}</option>`; });
+            select.innerHTML = optionsHtml;
+
+            const addBtn = document.createElement('button'); addBtn.textContent = '追加'; addBtn.className = 'btn-add';
+            addBtn.onclick = () => {
+                const selectedName = select.value;
+                if (!selectedName) return;
+                const existingInputs = document.querySelectorAll(isChip ? '.chip-val' : '.score-val');
+                for(let input of existingInputs) { if (input.dataset.player === selectedName) { alert("そのプレイヤーは既に追加されています"); return; } }
+                addEditRow(formContainer, selectedName, isChip, null);
+                select.value = ''; calcEditTotal();
+            };
+            addSection.appendChild(select); addSection.appendChild(addBtn);
+            formContainer.appendChild(addSection);
+            calcEditTotal();
+        }
+
+        function closeEditModal() { document.getElementById('editModal').style.display = 'none'; currentEditingId = null; }
+
+        function calcEditTotal() {
+            const game = historyData.find(g => g.id === currentEditingId); if (!game) return;
+            const isChip = game.gameType === 'chips'; let total = 0;
+            if (isChip) {
+                document.querySelectorAll('.chip-val').forEach(input => total += parseInt(input.value) || 0);
+                const checkEl = document.getElementById('editTotalCheck');
+                checkEl.textContent = `枚数合計: ${total}`; checkEl.style.color = total === 0 ? 'var(--secondary)' : 'var(--danger)';
+            } else {
+                const sInputs = document.querySelectorAll('.score-val'); const bInputs = document.querySelectorAll('.bonus-val');
+                let grandTotal = 0;
+                for(let i=0; i<sInputs.length; i++) grandTotal += (parseInt(sInputs[i].value)||0) + (parseInt(bInputs[i].value)||0);
+                const checkEl = document.getElementById('editTotalCheck');
+                checkEl.textContent = `合計: ${grandTotal}`; checkEl.style.color = grandTotal === 0 ? 'var(--secondary)' : 'var(--danger)';
+            }
+        }
+
+        async function saveEditedGame() {
+            const gameIndex = historyData.findIndex(g => g.id === currentEditingId);
+            if (gameIndex === -1) return;
+            const game = historyData[gameIndex];
+            const isChip = game.gameType === 'chips';
+            const newPayouts = {}; let totalCheck = 0; let playerCount = 0;
+
+            if (isChip) {
+                const inputs = document.querySelectorAll('.chip-val');
+                let unitPrice = 0;
+                const oldFirstKey = Object.keys(game.payouts)[0];
+                if (oldFirstKey && game.payouts[oldFirstKey].chipCount !== 0) unitPrice = game.payouts[oldFirstKey].total / game.payouts[oldFirstKey].chipCount;
+                if (!unitPrice && unitPrice !== 0) unitPrice = 50; if (unitPrice === 0) unitPrice = 1;
+
+                inputs.forEach(input => {
+                    const player = input.dataset.player; const count = parseInt(input.value) || 0;
+                    totalCheck += count; const finalTotal = count * unitPrice; 
+                    newPayouts[player] = { chipCount: count, total: finalTotal }; playerCount++;
+                });
+                if (totalCheck !== 0) if (!confirm(`チップ枚数の合計が ${totalCheck} 枚です。保存しますか？`)) return;
+
+            } else {
+                const sInputs = document.querySelectorAll('.score-val'); const bInputs = document.querySelectorAll('.bonus-val');
+                const playerScores = [];
+                for(let i=0; i<sInputs.length; i++) {
+                    const player = sInputs[i].dataset.player;
+                    const sVal = parseInt(sInputs[i].value) || 0; const bVal = parseInt(bInputs[i].value) || 0;
+                    const subTotal = sVal + bVal; totalCheck += subTotal;
+                    playerScores.push({ name: player, score: subTotal, sVal: sVal, bVal: bVal }); playerCount++;
+                }
+                if (totalCheck !== 0) if (!confirm(`点数の合計が ${totalCheck} です。保存しますか？`)) return;
+                playerScores.sort((a, b) => b.score - a.score);
+                const newRanks = {}; playerScores.forEach((p, index) => newRanks[index + 1] = p.name); game.ranks = newRanks;
+                playerScores.forEach((p, index) => newPayouts[p.name] = { scorePt: p.sVal, bonusPt: p.bVal, rank: index + 1, total: p.score });
+            }
+
+            game.payouts = newPayouts; game.playerCount = playerCount;
+            historyData[gameIndex] = game;
+            await saveData('mahjong_variable_score_history_int', historyData);
+            closeEditModal(); updateDisplay();
+        }
+
+        // --- Settlement Plan ---
+        function calculateAndDisplaySettlement(totals) {
+            const container = document.getElementById('settlementPlan'); container.innerHTML = '';
+            let pts = [], check = 0;
+            for (let n in totals) {
+                if (totals[n].games > 0 || totals[n].totalPayout !== 0) {
+                    let v = Math.round(totals[n].totalPayout);
+                    if (v !== 0) { pts.push({name:n, val:v}); check += v; }
+                }
+            }
+            if (Math.abs(check) > 5) { container.innerHTML = `<div style="color:var(--danger); font-weight:bold;">⚠️ 合計 ${check} pt (不整合)</div>`; return; }
+            if (pts.length === 0) { container.innerHTML = '<div class="settlement-none">精算なし</div>'; return; }
+
+            let d = pts.filter(p => p.val < 0).sort((a,b) => a.val - b.val);
+            let c = pts.filter(p => p.val > 0).sort((a,b) => b.val - a.val);
+            let tx = [], di = 0, ci = 0;
+
+            while (di < d.length && ci < c.length) {
+                let amt = Math.min(Math.abs(d[di].val), c[ci].val);
+                tx.push({from:d[di].name, to:c[ci].name, amount:amt});
+                d[di].val += amt; c[ci].val -= amt;
+                if (Math.abs(d[di].val) < 1) di++;
+                if (c[ci].val < 1) ci++;
+            }
+
+            const groupedTx = {};
+            tx.forEach(t => {
+                if (!groupedTx[t.from]) groupedTx[t.from] = { total: 0, payments: [] };
+                groupedTx[t.from].payments.push(t);
+                groupedTx[t.from].total += t.amount;
+            });
+
+            const ul = document.createElement('ul'); ul.className = 'settlement-list';
+            for (const payer in groupedTx) {
+                const data = groupedTx[payer];
+                const li = document.createElement('li'); li.className = 'settlement-item';
+                let detailsHtml = '';
+                data.payments.forEach(p => { detailsHtml += `<div class="settlement-row"><span><span class="arrow">➡</span> <span class="receiver">${p.to}</span></span><span class="amount">${p.amount.toLocaleString()}</span></div>`; });
+                li.innerHTML = `<div class="settlement-header"><span class="payer">${payer}</span><span class="total-payment-label">計 ${data.total.toLocaleString()} pt</span></div><div class="settlement-details">${detailsHtml}</div>`;
+                ul.appendChild(li);
+            }
+            container.appendChild(ul);
+        }
+
+        // --- Chart & Data Logic ---
+        function createChartData(data, selectedPlayers, axisMode) {
+            const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+            const labels = [];
+            const playerPayouts = {};
+            const names = [...new Set(data.flatMap(h => Object.keys(h.payouts)))];
+            
+            names.forEach(n => playerPayouts[n] = []);
+            let current = names.reduce((a, n) => { a[n] = 0; return a; }, {});
+
+            if (axisMode === 'group') {
+                let currentGroupCount = 0;
+                sorted.forEach((g, index) => {
+                    const currentGroupName = g.group || '-';
+                    names.forEach(n => {
+                        const payout = g.payouts[n] ? Math.round(g.payouts[n].total) : 0;
+                        current[n] += payout;
+                    });
+                    if (g.gameType !== 'chips') currentGroupCount++;
+                    const nextGame = sorted[index + 1];
+                    const nextGroupName = nextGame ? (nextGame.group || '-') : null;
+                    if (currentGroupName !== nextGroupName) {
+                        labels.push(currentGroupName);
+                        names.forEach(n => { playerPayouts[n].push(current[n]); });
+                        currentGroupCount = 0;
+                    }
+                });
+            } else {
+                const groups = {};
+                sorted.forEach(g => {
+                    const gn = g.group || '-';
+                    if (!groups[gn]) groups[gn] = 0; 
+                    if (g.gameType !== 'chips') groups[gn]++; 
+                    names.forEach(n => {
+                        const payout = g.payouts[n] ? Math.round(g.payouts[n].total) : 0;
+                        current[n] += payout;
+                    });
+                    labels.push(g.gameType === 'chips' ? `${gn} (Chip)` : `${gn} (${groups[gn]})`);
+                    names.forEach(n => { playerPayouts[n].push(current[n]); });
+                });
+            }
+
+            let displayNames = names.filter(n => selectedPlayers.includes(n));
+            displayNames.sort((a, b) => current[b] - current[a]);
+
+            const colors = ['#4f46e5', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#636e72', '#2d3436'];
+            const allRegistered = [...new Set([...registeredPlayers, ...names])].sort();
+
+            const datasets = displayNames.map((n) => ({
+                label: n, 
+                data: playerPayouts[n], 
+                borderColor: colors[allRegistered.indexOf(n) % colors.length], 
+                backgroundColor: colors[allRegistered.indexOf(n) % colors.length]+'20',
+                borderWidth: 2.5, 
+                pointRadius: 2.5,
+                pointHoverRadius: 5,
+                pointHitRadius: 10,
+                fill: false, 
+                tension: 0.3 
+            })).filter(d => d.data && d.data.length > 0);
+
+            return { labels, datasets, allPlayerNames: names };
+        }
+
+        function drawChart(labels, datasets) {
+            const ctx = document.getElementById('payoutChart').getContext('2d');
+            if (payoutChart) payoutChart.destroy();
+            let vals = datasets.flatMap(d => d.data);
+            if (vals.length === 0) { payoutChart = new Chart(ctx, { type:'line', data:{}, options:{} }); return; }
+
+            let min = Math.min(...vals), max = Math.max(...vals), pad = (max-min)*0.1 || 1000;
+            let yMin = Math.floor((min-pad)/100)*100, yMax = Math.ceil((max+pad)/100)*100;
+            if (min >= 0) yMin = 0; if (max <= 0) yMax = 0;
+
+            payoutChart = new Chart(ctx, {
+                type: 'line', data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, font: {family: "'Noto Sans JP', sans-serif"} } },
+                        tooltip: {
+                            mode: 'index', intersect: false, backgroundColor: 'rgba(255,255,255,0.95)',
+                            titleColor: '#1f2937', bodyColor: '#1f2937', borderColor: '#e5e7eb', borderWidth: 1,
+                            titleFont: {family: "'Noto Sans JP', sans-serif", weight: 'bold'},
+                            bodyFont: {family: "'Noto Sans JP', sans-serif"},
+                            itemSort: (a, b) => b.parsed.y - a.parsed.y,
+                            callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y>0?'+':''}${c.parsed.y.toLocaleString()} pt` }
+                        }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    scales: { 
+                        y: { min: yMin, max: yMax, grid: { borderDash: [4,4], color: '#f3f4f6' }, ticks: { font: {family: "'Noto Sans JP', sans-serif"} } }, 
+                        x: { grid: { display: false }, ticks: { font: {family: "'Noto Sans JP', sans-serif"} } } 
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
