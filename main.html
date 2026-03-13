@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🀄️ 公大中麻雀倶楽部 - メインメニュー</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #10b981;
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border-radius: 16px;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding-bottom: 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 1.9rem;
+            margin: 0 0 10px 0;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.5);
+        }
+
+        .subtitle {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            color: var(--text-main);
+            margin-top: 0;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+        }
+
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 14px 18px;
+            background: #ffffff;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 14px;
+            box-shadow: 0 4px 10px rgba(15,23,42,0.06);
+            border: 1px solid #e5e7eb;
+            transition: all 0.25s ease;
+        }
+
+        .nav-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 22px rgba(15,23,42,0.12);
+            border-color: var(--primary-light);
+        }
+
+        .nav-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+            font-size: 0.98rem;
+        }
+
+        .nav-desc {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+
+        .badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: var(--primary);
+            margin-left: 6px;
+        }
+
+        .season-label {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .season-input-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .season-input-row input[type="text"] {
+            flex: 1;
+            min-width: 180px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        .season-add-btn {
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .season-add-btn:hover {
+            opacity: 0.9;
+        }
+
+        .season-card {
+            margin-bottom: 14px;
+        }
+
+        .season-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .season-edit-btn {
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--text-sub);
+        }
+
+        .season-edit-btn:hover {
+            background: #eef2ff;
+            border-color: var(--primary-light);
+            color: var(--primary);
+        }
+
+
+        @media (max-width: 600px) {
+            .card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🀄 公大中麻雀倶楽部</h1>
+        </header>
+
+        <div class="card">
+            <h2>🆕 シーズンを作成</h2>
+            <div class="season-input-row">
+                <input type="text" id="newSeasonName" placeholder="シーズン名を入力">
+                <button class="season-add-btn" onclick="addSeason()">シーズンを追加</button>
+            </div>
+        </div>
+
+        <div id="seasonsContainer"></div>
+    </div>
+
+    <script>
+        // Supabase設定（他ページと共通）
+        const SUPABASE_URL = "https://mikcjkqvdjkqkcgsufkh.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pa2Nqa3F2ZGprcWtjZ3N1ZmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NTU5ODIsImV4cCI6MjA3OTQzMTk4Mn0.O4gR7N9279zAsgunCDZre4FJAM2gHT4uwUlFkjEhm-k";
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let seasons = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSeasons();
+        });
+
+        async function loadSeasons() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('app_data')
+                    .select('*')
+                    .eq('key', 'mahjong_seasons');
+
+                if (error) throw error;
+
+                if (data && data.length > 0 && Array.isArray(data[0].value)) {
+                    seasons = data[0].value;
+                } else {
+                    // 初期状態: シーズン1だけ用意
+                    seasons = [
+                        { id: '1', name: 'シーズン1' }
+                    ];
+                    await saveSeasons();
+                }
+            } catch (e) {
+                alert('シーズン一覧の読み込みに失敗しました。\n' + e.message);
+                if (seasons.length === 0) {
+                    seasons = [{ id: '1', name: 'シーズン1' }];
+                }
+            }
+            renderSeasons();
+        }
+
+        async function saveSeasons() {
+            await supabaseClient
+                .from('app_data')
+                .upsert(
+                    { key: 'mahjong_seasons', value: seasons },
+                    { onConflict: 'key' }
+                );
+        }
+
+        function renderSeasons() {
+            const container = document.getElementById('seasonsContainer');
+            container.innerHTML = '';
+
+            if (!seasons || seasons.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'card';
+                empty.innerHTML = '<p class="subtitle">まだシーズンがありません。「シーズンを作成」から追加してください。</p>';
+                container.appendChild(empty);
+                return;
+            }
+
+            seasons
+                .slice()
+                .sort((a, b) => parseInt(a.id) - parseInt(b.id))
+                .forEach(season => {
+                    const card = document.createElement('div');
+                    card.className = 'card season-card';
+                    card.innerHTML = `
+                        <h2>📅 ${season.name}</h2>
+                        <div class="nav-grid">
+                            <a href="index.html?season=${season.id}" class="nav-link">
+                                <div class="nav-title">📝 データ入力</div>
+                            </a>
+                            <a href="history.html?season=${season.id}" class="nav-link">
+                                <div class="nav-title">📈 成績・履歴ページ</div>
+                            </a>
+                        </div>
+                        <div class="season-actions">
+                            <button class="season-edit-btn" onclick="renameSeason('${season.id}')">名前を変更</button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+        }
+
+        async function addSeason() {
+            const input = document.getElementById('newSeasonName');
+            const name = (input.value || '').trim();
+            if (!name) {
+                alert('シーズン名を入力してください。');
+                return;
+            }
+
+            if (seasons.some(s => s.name === name)) {
+                alert('同じ名前のシーズンが既に存在します。');
+                return;
+            }
+
+            const maxId = seasons.reduce((max, s) => {
+                const n = parseInt(s.id, 10);
+                return isNaN(n) ? max : Math.max(max, n);
+            }, 1);
+            const newId = String(maxId + 1);
+
+            seasons.push({ id: newId, name });
+            input.value = '';
+
+            try {
+                await saveSeasons();
+                renderSeasons();
+            } catch (e) {
+                alert('シーズンの保存に失敗しました。\n' + e.message);
+            }
+        }
+
+        async function renameSeason(id) {
+            const season = seasons.find(s => s.id === id);
+            if (!season) return;
+
+            const currentName = season.name || '';
+            const newName = (prompt(`シーズン「${currentName}」の新しい名前を入力してください:`, currentName) || '').trim();
+            if (!newName || newName === currentName) return;
+
+            if (seasons.some(s => s.id !== id && s.name === newName)) {
+                alert('同じ名前のシーズンが既に存在します。');
+                return;
+            }
+
+            season.name = newName;
+            try {
+                await saveSeasons();
+                renderSeasons();
+            } catch (e) {
+                alert('シーズン名の保存に失敗しました。\n' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
+

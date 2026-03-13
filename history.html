@@ -184,8 +184,12 @@
     <div class="container">
         <header>
             <h1>🀄️ 公大中麻雀倶楽部</h1>
+            <div id="seasonLabel" class="subtitle"></div>
             <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-                <a href="index.html" class="nav-link">
+                <a href="main.html" class="nav-link">
+                    <span>🏠 メインメニュー</span>
+                </a>
+                <a id="toIndexLink" href="index.html" class="nav-link">
                     <span>📝 データ入力ページへ戻る</span>
                 </a>
             </div>
@@ -278,11 +282,22 @@
 
     <script>
         // ============================================================
-        // ★★★ Supabase URL & Key ★★★
+        // ★★★ Supabase設定（全シーズン共通） ★★★
         // ============================================================
         const SUPABASE_URL = "https://mikcjkqvdjkqkcgsufkh.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pa2Nqa3F2ZGprcWtjZ3N1ZmtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NTU5ODIsImV4cCI6MjA3OTQzMTk4Mn0.O4gR7N9279zAsgunCDZre4FJAM2gHT4uwUlFkjEhm-k";
         // ============================================================
+
+        // --- シーズン判定（main.html から ?season=1 / 2 で遷移） ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const SEASON = urlParams.get('season') || '1';
+        const SEASON_SUFFIX = SEASON === '1' ? '' : `_s${SEASON}`;
+
+        // シーズンごとにSupabaseのキー名を切り替え
+        const HISTORY_KEY   = `mahjong_variable_score_history_int${SEASON_SUFFIX}`;
+        const GROUPS_KEY    = `mahjong_registered_groups${SEASON_SUFFIX}`;
+        const PLAYERS_KEY   = `mahjong_registered_players${SEASON_SUFFIX}`;
+        const MEMOS_KEY     = `mahjong_memos${SEASON_SUFFIX}`;
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -293,8 +308,16 @@
         let payoutChart = null; 
         let currentEditingId = null;
         let availablePlayersList = []; 
+        let currentSeasonName = '';
 
-        document.addEventListener('DOMContentLoaded', () => { loadAllData(); });
+        document.addEventListener('DOMContentLoaded', () => {
+            // シーズンに応じてヘッダーのリンクも更新
+            const toIndex = document.getElementById('toIndexLink');
+            if (toIndex) {
+                toIndex.href = `index.html?season=${SEASON}`;
+            }
+            loadAllData();
+        });
 
         async function loadAllData() {
             showLoading(true);
@@ -303,12 +326,25 @@
                 if (error) throw error;
                 if (data) {
                     data.forEach(row => {
-                        if (row.key === 'mahjong_variable_score_history_int') historyData = row.value || [];
-                        if (row.key === 'mahjong_registered_groups') registeredGroups = row.value || [];
-                        if (row.key === 'mahjong_registered_players') registeredPlayers = row.value || []; 
-                        if (row.key === 'mahjong_memos') memos = row.value || [];
+                        if (row.key === 'mahjong_seasons') {
+                            const list = row.value || [];
+                            const found = list.find(s => String(s.id) === String(SEASON));
+                            if (found && found.name) currentSeasonName = found.name;
+                        }
+                        if (row.key === HISTORY_KEY) historyData = row.value || [];
+                        if (row.key === GROUPS_KEY) registeredGroups = row.value || [];
+                        if (row.key === PLAYERS_KEY) registeredPlayers = row.value || []; 
+                        if (row.key === MEMOS_KEY) memos = row.value || [];
                     });
                 }
+
+                const seasonLabel = document.getElementById('seasonLabel');
+                if (seasonLabel) {
+                    seasonLabel.textContent = currentSeasonName
+                        ? `シーズン: ${currentSeasonName}`
+                        : `シーズンID: ${SEASON}`;
+                }
+
                 initializeGroupFilter();
                 initializePlayerFilter();
                 renderMemos();
@@ -339,14 +375,14 @@
             const text = document.getElementById('memoText').value.trim();
             if (!text) return;
             memos.unshift({ id: Date.now(), text: text, date: new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) });
-            await saveData('mahjong_memos', memos);
+            await saveData(MEMOS_KEY, memos);
             renderMemos(); document.getElementById('memoText').value = '';
         }
 
         async function deleteMemo(id) {
             if (confirm("このメモを削除しますか？")) {
                 memos = memos.filter(memo => memo.id !== id);
-                await saveData('mahjong_memos', memos);
+                await saveData(MEMOS_KEY, memos);
                 renderMemos();
             }
         }
@@ -415,7 +451,7 @@
         async function deleteGame(id) {
             if (confirm("この履歴を削除してもよろしいですか？")) {
                 historyData = historyData.filter(game => game.id !== id);
-                await saveData('mahjong_variable_score_history_int', historyData);
+                await saveData(HISTORY_KEY, historyData);
                 updateDisplay();
             }
         }
@@ -689,7 +725,7 @@
 
             game.payouts = newPayouts; game.playerCount = playerCount;
             historyData[gameIndex] = game;
-            await saveData('mahjong_variable_score_history_int', historyData);
+            await saveData(HISTORY_KEY, historyData);
             closeEditModal(); updateDisplay();
         }
 
