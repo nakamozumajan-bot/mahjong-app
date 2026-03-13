@@ -183,13 +183,12 @@
 
     <div class="container">
         <header>
-            <h1>🀄️ 公大中麻雀倶楽部</h1>
-            <div id="seasonLabel" class="subtitle"></div>
+            <h1 id="pageTitle">📈 成績・履歴</h1>
             <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-                <a href="main.html" class="nav-link">
+                <a href="index.html" class="nav-link">
                     <span>🏠 メインメニュー</span>
                 </a>
-                <a id="toIndexLink" href="index.html" class="nav-link">
+                <a id="toIndexLink" href="input.html" class="nav-link">
                     <span>📝 データ入力ページへ戻る</span>
                 </a>
             </div>
@@ -314,7 +313,7 @@
             // シーズンに応じてヘッダーのリンクも更新
             const toIndex = document.getElementById('toIndexLink');
             if (toIndex) {
-                toIndex.href = `index.html?season=${SEASON}`;
+                toIndex.href = `input.html?season=${SEASON}`;
             }
             loadAllData();
         });
@@ -338,12 +337,15 @@
                     });
                 }
 
-                const seasonLabel = document.getElementById('seasonLabel');
-                if (seasonLabel) {
-                    seasonLabel.textContent = currentSeasonName
-                        ? `シーズン: ${currentSeasonName}`
-                        : `シーズンID: ${SEASON}`;
+                const titleEl = document.getElementById('pageTitle');
+                const displayName = currentSeasonName
+                    ? currentSeasonName
+                    : `シーズン${SEASON}`;
+                const titleText = `成績・履歴-${displayName}`;
+                if (titleEl) {
+                    titleEl.textContent = titleText;
                 }
+                document.title = titleText;
 
                 initializeGroupFilter();
                 initializePlayerFilter();
