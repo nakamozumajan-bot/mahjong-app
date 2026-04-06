@@ -112,6 +112,42 @@
             color: var(--primary);
         }
 
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            white-space: nowrap;
+            font-size: 0.9rem;
+        }
+
+        .stats-table th {
+            background-color: #f9fafb;
+            color: var(--text-sub);
+            font-weight: 600;
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .stats-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .stats-table tr:last-child td { border-bottom: none; }
+        .stats-table th:nth-child(n+2), .stats-table td:nth-child(n+2) { text-align: right; }
+
+        .positive { color: #10b981; font-weight: bold; }
+        .negative { color: #ef4444; font-weight: bold; }
+        .zero { color: #9ca3af; }
+
         .season-links {
             display: flex;
             flex-wrap: wrap;
@@ -206,6 +242,25 @@
         </div>
 
         <div id="seasonsContainer"></div>
+
+        <div class="card">
+            <h2>🏆 全シーズン通算成績</h2>
+            <div class="table-wrapper">
+                <table class="stats-table" id="allSeasonStatsTable">
+                    <thead>
+                        <tr>
+                            <th>プレイヤー</th>
+                            <th>通常対局数</th>
+                            <th>チップ精算回数</th>
+                            <th>総合収支 (pt)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="4" style="text-align:center; color:#9ca3af;">読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -214,6 +269,7 @@
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let seasons = [];
+        let allRows = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             loadSeasons();
@@ -243,6 +299,7 @@
             try {
                 const { data, error } = await supabaseClient.from('app_data').select('*');
                 if (error) throw error;
+                allRows = Array.isArray(data) ? data : [];
                 if (data) {
                     const row = data.find(r => r.key === 'mahjong_seasons');
                     seasons = (row && row.value && Array.isArray(row.value)) ? row.value : [];
@@ -251,6 +308,7 @@
                     seasons = [{ id: '1', name: 'シーズン1' }];
                     await saveData('mahjong_seasons', seasons);
                 }
+                renderAllSeasonStats();
                 renderSeasons();
             } catch (error) {
                 alert("データの読み込みに失敗しました。\n" + error.message);
@@ -263,10 +321,90 @@
             await saveData('mahjong_seasons', seasons);
         }
 
+        function getHistoryKeyBySeasonId(seasonId) {
+            const suffix = String(seasonId) === '1' ? '' : `_s${seasonId}`;
+            return `mahjong_variable_score_history_int${suffix}`;
+        }
+
+        function getPlayersKeyBySeasonId(seasonId) {
+            const suffix = String(seasonId) === '1' ? '' : `_s${seasonId}`;
+            return `mahjong_registered_players${suffix}`;
+        }
+
+        function renderAllSeasonStats() {
+            const tableBody = document.querySelector('#allSeasonStatsTable tbody');
+            if (!tableBody) return;
+            tableBody.innerHTML = '';
+
+            const rowByKey = {};
+            allRows.forEach(row => { rowByKey[row.key] = row.value; });
+
+            const totals = {};
+            seasons.forEach(season => {
+                const historyKey = getHistoryKeyBySeasonId(season.id);
+                const seasonHistory = Array.isArray(rowByKey[historyKey]) ? rowByKey[historyKey] : [];
+                seasonHistory.forEach(game => {
+                    const payouts = game && game.payouts ? game.payouts : {};
+                    const isChip = game && game.gameType === 'chips';
+                    Object.entries(payouts).forEach(([playerName, payout]) => {
+                        if (!totals[playerName]) {
+                            totals[playerName] = {
+                                standardGames: 0,
+                                chipSettlements: 0,
+                                totalPayout: 0
+                            };
+                        }
+                        if (isChip) {
+                            totals[playerName].chipSettlements += 1;
+                        } else {
+                            totals[playerName].standardGames += 1;
+                        }
+                        const total = payout && typeof payout.total === 'number' ? payout.total : 0;
+                        totals[playerName].totalPayout += total;
+                    });
+                });
+            });
+
+            const rows = Object.entries(totals)
+                .sort(([, a], [, b]) => b.totalPayout - a.totalPayout);
+
+            if (rows.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#9ca3af;">通算成績データがありません。</td></tr>';
+                return;
+            }
+
+            rows.forEach(([name, stat]) => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = name;
+                row.insertCell().textContent = stat.standardGames;
+                row.insertCell().textContent = stat.chipSettlements;
+                const totalCell = row.insertCell();
+                const rounded = Math.round(stat.totalPayout);
+                totalCell.textContent = rounded.toLocaleString();
+                totalCell.className = rounded > 0 ? 'positive' : (rounded < 0 ? 'negative' : 'zero');
+            });
+        }
+
         function renderSeasons() {
             const container = document.getElementById('seasonsContainer');
             container.innerHTML = '';
-            seasons.forEach(season => {
+            const sortedSeasons = [...seasons].sort((a, b) => {
+                const aName = (a.name || '').trim();
+                const bName = (b.name || '').trim();
+                const aIsSeason1 = aName === 'シーズン1(令和6年度)';
+                const bIsSeason1 = bName === 'シーズン1(令和6年度)';
+                if (aIsSeason1 && !bIsSeason1) return -1;
+                if (!aIsSeason1 && bIsSeason1) return 1;
+
+                const aNum = parseInt(a.id, 10);
+                const bNum = parseInt(b.id, 10);
+                if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+                if (!isNaN(aNum)) return -1;
+                if (!isNaN(bNum)) return 1;
+                return String(a.id).localeCompare(String(b.id), 'ja');
+            });
+
+            sortedSeasons.forEach(season => {
                 const card = document.createElement('div');
                 card.className = 'season-card';
                 const id = String(season.id);
@@ -315,6 +453,50 @@
             await saveSeasons();
             renderSeasons();
             if (input) input.value = '';
+        }
+
+        async function copyPlayersToAllSeasons() {
+            if (!confirm('全シーズンの登録プレイヤーを統合して、全シーズンに同じプレイヤー名一覧を保存します。実行しますか？')) {
+                return;
+            }
+
+            const rowByKey = {};
+            allRows.forEach(row => { rowByKey[row.key] = row.value; });
+
+            const mergedPlayersSet = new Set();
+            seasons.forEach(season => {
+                const playersKey = getPlayersKeyBySeasonId(season.id);
+                const seasonPlayers = Array.isArray(rowByKey[playersKey]) ? rowByKey[playersKey] : [];
+                seasonPlayers.forEach(name => {
+                    const trimmed = String(name || '').trim();
+                    if (trimmed) mergedPlayersSet.add(trimmed);
+                });
+            });
+
+            const mergedPlayers = [...mergedPlayersSet].sort((a, b) => a.localeCompare(b, 'ja'));
+            if (mergedPlayers.length === 0) {
+                alert('コピー対象のプレイヤー名が見つかりませんでした。');
+                return;
+            }
+
+            const upsertRows = seasons.map(season => ({
+                key: getPlayersKeyBySeasonId(season.id),
+                value: mergedPlayers
+            }));
+
+            showLoading(true);
+            try {
+                const { error } = await supabaseClient.from('app_data').upsert(upsertRows, { onConflict: 'key' });
+                if (error) throw error;
+
+                upsertRows.forEach(row => { rowByKey[row.key] = row.value; });
+                allRows = Object.entries(rowByKey).map(([key, value]) => ({ key, value }));
+                alert(`全${seasons.length}シーズンへ、${mergedPlayers.length}名のプレイヤー名をコピーしました。`);
+            } catch (error) {
+                alert('プレイヤー名のコピーに失敗しました。\n' + error.message);
+            } finally {
+                showLoading(false);
+            }
         }
 
         async function renameSeason(id) {
